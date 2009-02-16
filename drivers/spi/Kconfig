@@ -60,6 +60,16 @@ config SPI_ATMEL
 	  This selects a driver for the Atmel SPI Controller, present on
 	  many AT32 (AVR32) and AT91 (ARM) chips.
 
+config SPI_AT91_GPIO
+	tristate "Atmel AT91 series SPI by GPIO"
+	depends on SPI_MASTER && ARCH_AT91 && EXPERIMENTAL
+	select SPI_BITBANG
+	help
+	  SPI driver for Atmel AT91 series ARM SoCs using GPIO lines
+	  to provide the SPI bus. This can be used where the inbuilt
+	  hardware cannot provide the transfer mode, or where the
+	  board is using non hardware connected pins.
+
 config SPI_BFIN
 	tristate "SPI controller driver for ADI Blackfin5xx"
 	depends on BLACKFIN
@@ -99,15 +109,6 @@ config SPI_BUTTERFLY
 	  Butterfly <http://www.atmel.com/products/avr/butterfly>, an
 	  inexpensive battery powered microcontroller evaluation board.
 	  This same cable can be used to flash new firmware.
-
-config SPI_AT91
-	tristate "AT91RM9200 Bitbang SPI Master"
-	depends on SPI_MASTER && ARCH_AT91RM9200 && !SPI_ATMEL && EXPERIMENTAL
-	select SPI_BITBANG
-	help
-	  This is dumb PIO bitbanging driver for the Atmel AT91RM9200.
-	  The SPI_ATMEL driver will be its replacement, using the native
-	  SPI hardware and its DMA controller.
 
 config SPI_GPIO
 	tristate "GPIO-based bitbanging SPI Master"
