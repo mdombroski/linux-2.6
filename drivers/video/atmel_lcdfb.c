@@ -204,6 +204,10 @@ static unsigned long compute_hozval(unsigned long xres, unsigned long lcdcon2)
 
 static void atmel_lcdfb_stop_nowait(struct atmel_lcdfb_info *sinfo)
 {
+	/* Turn off power to LCD device/panel */
+	if (sinfo->atmel_lcdfb_power_control)
+		sinfo->atmel_lcdfb_power_control(0);
+
 	/* Turn off the LCD controller and the DMA controller */
 	lcdc_writel(sinfo, ATMEL_LCDC_PWRCON,
 			sinfo->guard_time << ATMEL_LCDC_GUARDT_OFFSET);
@@ -230,6 +234,10 @@ static void atmel_lcdfb_start(struct atmel_lcdfb_info *sinfo)
 	lcdc_writel(sinfo, ATMEL_LCDC_PWRCON,
 		(sinfo->guard_time << ATMEL_LCDC_GUARDT_OFFSET)
 		| ATMEL_LCDC_PWR);
+
+	/* Turn on power to LCD device/panel */
+	if (sinfo->atmel_lcdfb_power_control)
+		sinfo->atmel_lcdfb_power_control(1);
 }
 
 static void atmel_lcdfb_update_dma(struct fb_info *info,
@@ -345,7 +353,7 @@ static int atmel_lcdfb_check_var(struct fb_var_screeninfo *var,
 	dev_dbg(dev, "  bpp:        %u\n", var->bits_per_pixel);
 	dev_dbg(dev, "  clk:        %lu KHz\n", clk_value_khz);
 
-	if ((PICOS2KHZ(var->pixclock) * var->bits_per_pixel / 8) > clk_value_khz) {
+	if (PICOS2KHZ(var->pixclock) > clk_value_khz) {
 		dev_err(dev, "%lu KHz pixel clock is too fast\n", PICOS2KHZ(var->pixclock));
 		return -EINVAL;
 	}
@@ -477,7 +485,7 @@ static int atmel_lcdfb_set_par(struct fb_info *info)
 {
 	struct atmel_lcdfb_info *sinfo = info->par;
 	unsigned long hozval_linesz;
-	unsigned long value;
+	long value;
 	unsigned long clk_value_khz;
 	unsigned long bits_per_line;
 
@@ -514,22 +522,20 @@ static int atmel_lcdfb_set_par(struct fb_info *info)
 	/* Set pixel clock */
 	clk_value_khz = clk_get_rate(sinfo->lcdc_clk) / 1000;
 
-	value = DIV_ROUND_UP(clk_value_khz, PICOS2KHZ(info->var.pixclock));
-
-	if (value < 2) {
+	value = DIV_ROUND_UP(clk_value_khz, (2*PICOS2KHZ(info->var.pixclock))) -1;
+	
+	dev_dbg(info->device, "  * programming CLKVAL = 0x%08lx\n", value);
+	
+	if (value < 0) {
 		dev_notice(info->device, "Bypassing pixel clock divider\n");
 		lcdc_writel(sinfo, ATMEL_LCDC_LCDCON1, ATMEL_LCDC_BYPASS);
 	} else {
-		value = (value / 2) - 1;
-		dev_dbg(info->device, "  * programming CLKVAL = 0x%08lx\n",
-				value);
-		lcdc_writel(sinfo, ATMEL_LCDC_LCDCON1,
-				value << ATMEL_LCDC_CLKVAL_OFFSET);
+		lcdc_writel(sinfo, ATMEL_LCDC_LCDCON1, value << ATMEL_LCDC_CLKVAL_OFFSET);
 		info->var.pixclock = KHZ2PICOS(clk_value_khz / (2 * (value + 1)));
-		dev_dbg(info->device, "  updated pixclk:     %lu KHz\n",
-					PICOS2KHZ(info->var.pixclock));
-	}
 
+		dev_dbg(info->device, "  updated pixclk:     %lu KHz\n",
+				PICOS2KHZ(info->var.pixclock));
+	}
 
 	/* Initialize control register 2 */
 	value = sinfo->default_lcdcon2;
@@ -608,16 +614,16 @@ static inline unsigned int chan_to_field(unsigned int chan, const struct fb_bitf
 }
 
 /**
- *  	atmel_lcdfb_setcolreg - Optional function. Sets a color register.
+ *      atmel_lcdfb_setcolreg - Optional function. Sets a color register.
  *      @regno: Which register in the CLUT we are programming
  *      @red: The red value which can be up to 16 bits wide
- *	@green: The green value which can be up to 16 bits wide
- *	@blue:  The blue value which can be up to 16 bits wide.
- *	@transp: If supported the alpha value which can be up to 16 bits wide.
+ *      @green: The green value which can be up to 16 bits wide
+ *      @blue:  The blue value which can be up to 16 bits wide.
+ *      @transp: If supported the alpha value which can be up to 16 bits wide.
  *      @info: frame buffer info structure
  *
- *  	Set a single color register. The values supplied have a 16 bit
- *  	magnitude which needs to be scaled in this function for the hardware.
+ *	Set a single color register. The values supplied have a 16 bit
+ *	magnitude which needs to be scaled in this function for the hardware.
  *	Things to take into consideration are how many color registers, if
  *	any, are supported with the current color visual. With truecolor mode
  *	no color palettes are supported. Here a psuedo palette is created
