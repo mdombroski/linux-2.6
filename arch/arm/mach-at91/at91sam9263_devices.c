@@ -653,7 +653,7 @@ static const unsigned spi1_standard_cs[4] = { AT91_PIN_PB15, AT91_PIN_PB16, AT91
 void __init at91_add_device_spi(struct spi_board_info *devices, int nr_devices)
 {
 	int i;
-	unsigned long cs_pin;
+	unsigned long cs_pin = 0;
 	short enable_spi0 = 0;
 	short enable_spi1 = 0;
 
@@ -661,24 +661,34 @@ void __init at91_add_device_spi(struct spi_board_info *devices, int nr_devices)
 	for (i = 0; i < nr_devices; i++) {
 		if (devices[i].controller_data)
 			cs_pin = (unsigned long) devices[i].controller_data;
-		else if (devices[i].bus_num == 0)
-			cs_pin = spi0_standard_cs[devices[i].chip_select];
 		else
-			cs_pin = spi1_standard_cs[devices[i].chip_select];
+		{
+			if (devices[i].bus_num == 0)
+				cs_pin = spi0_standard_cs[devices[i].chip_select];
+			if (devices[i].bus_num == 1)
+				cs_pin = spi1_standard_cs[devices[i].chip_select];
+		}
 
-		if (devices[i].bus_num == 0)
-			enable_spi0 = 1;
-		else
-			enable_spi1 = 1;
+		switch(devices[i].bus_num) {
+			case 0:
+				enable_spi0 = 1;
+				break;
+			case 1:
+				enable_spi1 = 1;
+				break;
+			default:
+				continue;
+		}
 
 		/* enable chip-select pin */
 		at91_set_gpio_output(cs_pin, 1);
-
+		
 		/* pass chip-select pin to driver */
 		devices[i].controller_data = (void *) cs_pin;
-	}
 
-	spi_register_board_info(devices, nr_devices);
+		printk(KERN_INFO "Atmel SPI: Add device (%s)\n", devices[i].modalias);
+		spi_register_board_info(&devices[i], 1);
+	}
 
 	/* Configure SPI bus(es) */
 	if (enable_spi0) {
