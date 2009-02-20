@@ -1,1 +1,2 @@
 header-y += spidev.h
+header-y += nrf24l01.h

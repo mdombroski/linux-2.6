@@ -210,6 +210,12 @@ config SGI_GRU_DEBUG
 	This option enables addition debugging code for the SGI GRU driver. If
 	you are unsure, say N.
 
+config NORDIC_NRF24L01
+	tristate "Nordic nRF24L01"
+	default n
+	help
+	  Support for Nordic Semiconductor nRF24L01 2.4GHz transceiver.
+
 config DELL_LAPTOP
 	tristate "Dell Laptop Extras (EXPERIMENTAL)"
 	depends on X86

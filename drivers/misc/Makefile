@@ -20,4 +20,5 @@ obj-$(CONFIG_SGI_GRU)		+= sgi-gru/
 obj-$(CONFIG_HP_ILO)		+= hpilo.o
 obj-$(CONFIG_ISL29003)		+= isl29003.o
 obj-$(CONFIG_C2PORT)		+= c2port/
+obj-$(CONFIG_NORDIC_NRF24L01) += nrf24l01.o
 obj-y				+= eeprom/
