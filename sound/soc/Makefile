@@ -3,6 +3,7 @@ snd-soc-core-objs := soc-core.o soc-dapm.o soc-jack.o
 obj-$(CONFIG_SND_SOC)	+= snd-soc-core.o
 obj-$(CONFIG_SND_SOC)	+= codecs/
 obj-$(CONFIG_SND_SOC)	+= atmel/
+obj-$(CONFIG_SND_SOC)	+= at91/
 obj-$(CONFIG_SND_SOC)	+= au1x/
 obj-$(CONFIG_SND_SOC)	+= blackfin/
 obj-$(CONFIG_SND_SOC)	+= davinci/

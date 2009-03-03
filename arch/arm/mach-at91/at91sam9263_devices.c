@@ -716,8 +716,7 @@ void __init at91_add_device_spi(struct spi_board_info *devices, int nr_devices) 
 /* --------------------------------------------------------------------
  *  AC97
  * -------------------------------------------------------------------- */
-
-#if defined(CONFIG_SND_AT91_AC97) || defined(CONFIG_SND_AT91_AC97_MODULE)
+#if defined(CONFIG_SND_AT91_SOC_AC97) || defined(CONFIG_SND_AT91_SOC_AC97_MODULE)
 static u64 ac97_dmamask = DMA_BIT_MASK(32);
 static struct atmel_ac97_data ac97_data;
 
@@ -735,7 +734,7 @@ static struct resource ac97_resources[] = {
 };
 
 static struct platform_device at91sam9263_ac97_device = {
-	.name		= "ac97c",
+	.name		= "at91-ac97",
 	.id		= 1,
 	.dev		= {
 				.dma_mask		= &ac97_dmamask,
@@ -748,6 +747,8 @@ static struct platform_device at91sam9263_ac97_device = {
 
 void __init at91_add_device_ac97(struct atmel_ac97_data *data)
 {
+	printk(KERN_INFO "AT91: Atmel AC97 controller\n");
+
 	if (!data)
 		return;
 

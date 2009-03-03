@@ -1,0 +1,26 @@
+config SND_AT91_SOC_PCM
+	tristate "SoC Audio for the Atmel AT91 System-on-Chip (PCM interface)"
+	depends on ARCH_AT91
+	help
+	  Say Y or M if you want to add support for system on chip audio
+	  attached to the Atmel AT91 series.
+	  You will need to select the hardware interface type below (AC97, SSC)
+
+config SND_AT91_SOC_AC97
+	tristate "Atmel AT91 AC97 interface"
+	depends on ARCH_AT91 && SND_AT91_SOC_PCM
+	select AC97_BUS
+	select SND_AC97_CODEC
+	select SND_SOC_AC97_BUS
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  AT91 AC97 interface. You will also need to select the codec below
+
+config SND_AT91_SOC_AC97_GENERIC
+	tristate "SoC Audio support for generic AC97 codec"
+	depends on ARCH_AT91 && SND_AT91_SOC_PCM && SND_AT91_SOC_AC97
+	select SND_SOC_AC97_CODEC
+	help
+	  Say Y if you want to add support for a generic A97 codec
+	  connected to Atmel AT91 series AC97 interface.
+
