@@ -136,8 +136,6 @@ clkevt32k_next_event(unsigned long delta, struct clock_event_device *dev)
 	u32		alm;
 	int		status = 0;
 
-	BUG_ON(delta < 2);
-
 	/* Use "raw" primitives so we behave correctly on RT kernels. */
 	raw_local_irq_save(flags);
 

@@ -114,7 +114,11 @@ snd_at73c213_write_reg(struct snd_at73c213 *chip, u8 reg, u8 val)
 static struct snd_pcm_hardware snd_at73c213_playback_hw = {
 	.info		= SNDRV_PCM_INFO_INTERLEAVED |
 			  SNDRV_PCM_INFO_BLOCK_TRANSFER,
+#ifdef __BIG_ENDIAN
 	.formats	= SNDRV_PCM_FMTBIT_S16_BE,
+#else
+	.formats	= SNDRV_PCM_FMTBIT_S16_LE,
+#endif
 	.rates		= SNDRV_PCM_RATE_CONTINUOUS,
 	.rate_min	= 8000,  /* Replaced by chip->bitrate later. */
 	.rate_max	= 50000, /* Replaced by chip->bitrate later. */

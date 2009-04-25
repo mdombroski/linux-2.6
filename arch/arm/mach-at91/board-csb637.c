@@ -113,7 +113,7 @@ static struct gpio_led csb_leds[] = {
 		.gpio			= AT91_PIN_PB2,
 		.active_low		= 1,
 		.default_trigger	= "heartbeat",
-	},
+	}
 };
 
 static void __init csb637_board_init(void)

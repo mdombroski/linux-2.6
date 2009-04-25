@@ -29,6 +29,7 @@
 #include <mach/cpu.h>
 
 #include "clock.h"
+#include "generic.h"
 
 
 /*
@@ -270,6 +271,23 @@ unsigned long clk_get_rate(struct clk *clk)
 	return rate;
 }
 EXPORT_SYMBOL(clk_get_rate);
+
+/*------------------------------------------------------------------------*/
+
+#ifdef CONFIG_PM
+
+int clk_must_disable(struct clk *clk)
+{
+	if (!at91_suspend_entering_slow_clock())
+		return 0;
+
+	while (clk->parent)
+		clk = clk->parent;
+	return clk != &clk32k;
+}
+EXPORT_SYMBOL(clk_must_disable);
+
+#endif
 
 /*------------------------------------------------------------------------*/
 
@@ -639,7 +657,7 @@ int __init at91_clock_init(unsigned long main_clock)
 		if (mckr & AT91_PMC_PDIV)
 			freq /= 2;		/* processor clock division */
 	} else
-		mck.rate_hz = freq / (1 << ((mckr & AT91_PMC_MDIV) >> 8));      /* mdiv */
+		mck.rate_hz = freq / (1 << ((mckr & AT91_PMC_MDIV) >> 8));	/* mdiv */
 
 	/* Register the PMC's standard clocks */
 	for (i = 0; i < ARRAY_SIZE(standard_pmc_clocks); i++)

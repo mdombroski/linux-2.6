@@ -297,12 +297,6 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* cpu init code should really have flagged this device as
-	 * being wake-capable; if it didn't, do that here.
-	 */
-	if (!device_can_wakeup(&pdev->dev))
-		device_init_wakeup(&pdev->dev, 1);
-
 	rtc = rtc_device_register(pdev->name, &pdev->dev,
 				&at91_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc)) {

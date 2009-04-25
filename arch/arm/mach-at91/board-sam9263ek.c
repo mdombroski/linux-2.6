@@ -46,7 +46,9 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/at91sam9_smc.h>
+#include <mach/at91_shdwc.h>
 
+#include "sam9_smc.h"
 #include "generic.h"
 
 
@@ -138,7 +140,7 @@ static struct spi_board_info ek_spi_devices[] = {
 	{
 		.modalias	= "ads7846",
 		.chip_select	= 3,
-		.max_speed_hz	= 125000 * 26,	/* (max sample rate @ 3V) * (cmd + data + overhead) */
+		.max_speed_hz	= 125000 * 16,	/* max sample rate * clocks per sample */
 		.bus_num	= 0,
 		.platform_data	= &ads_info,
 		.irq		= AT91SAM9263_ID_IRQ1,
@@ -203,6 +205,38 @@ static struct atmel_nand_data __initdata ek_nand_data = {
 #endif
 };
 
+static struct sam9_smc_config __initdata ek_nand_smc_config = {
+	.ncs_read_setup		= 0,
+	.nrd_setup		= 1,
+	.ncs_write_setup	= 0,
+	.nwe_setup		= 1,
+
+	.ncs_read_pulse		= 3,
+	.nrd_pulse		= 3,
+	.ncs_write_pulse	= 3,
+	.nwe_pulse		= 3,
+
+	.read_cycle		= 5,
+	.write_cycle		= 5,
+
+	.mode			= AT91_SMC_READMODE | AT91_SMC_WRITEMODE | AT91_SMC_EXNWMODE_DISABLE,
+	.tdf_cycles		= 2,
+};
+
+static void __init ek_add_device_nand(void)
+{
+	/* setup bus-width (8 or 16) */
+	if (ek_nand_data.bus_width_16)
+		ek_nand_smc_config.mode |= AT91_SMC_DBW_16;
+	else
+		ek_nand_smc_config.mode |= AT91_SMC_DBW_8;
+
+	/* configure chip-select 3 (NAND) */
+	sam9_smc_configure(3, &ek_nand_smc_config);
+
+	at91_add_device_nand(&ek_nand_data);
+}
+
 
 /*
  * I2C devices
@@ -221,6 +255,7 @@ static struct i2c_board_info __initdata ek_i2c_devices[] = {
 	},
 	/* more devices can be added using expansion connectors */
 };
+
 
 /*
  * LCD Controller
@@ -385,7 +420,7 @@ static void __init ek_board_init(void)
 	/* Ethernet */
 	at91_add_device_eth(&ek_macb_data);
 	/* NAND */
-	at91_add_device_nand(&ek_nand_data);
+	ek_add_device_nand();
 	/* I2C */
 	at91_add_device_i2c(ek_i2c_devices, ARRAY_SIZE(ek_i2c_devices));
 	/* LCD Controller */
@@ -397,6 +432,9 @@ static void __init ek_board_init(void)
 	/* LEDs */
 	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
 	at91_pwm_leds(ek_pwm_led, ARRAY_SIZE(ek_pwm_led));
+	/* shutdown controller, wakeup button (5 msec low) */
+	at91_sys_write(AT91_SHDW_MR, AT91_SHDW_CPTWK0_(10) | AT91_SHDW_WKMODE0_LOW
+				| AT91_SHDW_RTTWKEN);
 }
 
 MACHINE_START(AT91SAM9263EK, "Atmel AT91SAM9263-EK")

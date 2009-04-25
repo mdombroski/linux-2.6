@@ -21,6 +21,7 @@
 
 #include <mach/board.h>
 #include <mach/at91_rtt.h>
+#include <mach/cpu.h>
 
 
 /*
@@ -149,6 +150,9 @@ static int at91_rtc_settime(struct device *dev, struct rtc_time *tm)
 	return 0;
 }
 
+/*
+ * Read alarm time and date in RTC
+ */
 static int at91_rtc_readalarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	struct sam9_rtc *rtc = dev_get_drvdata(dev);
@@ -175,6 +179,9 @@ static int at91_rtc_readalarm(struct device *dev, struct rtc_wkalrm *alrm)
 	return 0;
 }
 
+/*
+ * Set alarm time and date in RTC
+ */
 static int at91_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	struct sam9_rtc *rtc = dev_get_drvdata(dev);
@@ -319,10 +326,6 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 	rtc = kzalloc(sizeof *rtc, GFP_KERNEL);
 	if (!rtc)
 		return -ENOMEM;
-
-	/* platform setup code should have handled this; sigh */
-	if (!device_can_wakeup(&pdev->dev))
-		device_init_wakeup(&pdev->dev, 1);
 
 	platform_set_drvdata(pdev, rtc);
 	rtc->rtt = (void __force __iomem *) (AT91_VA_BASE_SYS - AT91_BASE_SYS);

@@ -920,6 +920,17 @@ config FB_EPSON1355
 	  framebuffer.  Product specs at
 	  <http://www.erd.epson.com/vdc/html/products.htm>.
 
+config FB_S1D15605
+	tristate "Epson S1D15605 framebuffer support"
+	depends on FB
+	default m if MACH_KB9200
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  Build in support for the S1D15605 Epson Research 128x64
+	  LCD controller as a framebuffer.
+
 config FB_S1D13XXX
 	tristate "Epson S1D13XXX framebuffer support"
 	depends on FB

@@ -42,7 +42,10 @@
 #include <mach/hardware.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
+#include <mach/at91sam9_smc.h>
+#include <mach/at91_shdwc.h>
 
+#include "sam9_smc.h"
 #include "generic.h"
 
 
@@ -87,6 +90,16 @@ static struct at91_udc_data __initdata ek_udc_data = {
 	.pullup_pin	= 0,		/* pull-up driven by UDC */
 };
 
+/*
+ * Compact Flash (via Expansion Connector)
+ */
+static struct at91_cf_data __initdata ek_cf_data = {
+	// .irq_pin	= ... user defined
+	// .det_pin	= ... user defined
+	// .vcc_pin	= ... user defined
+	// .rst_pin	= ... user defined
+	.chipselect	= 4,
+};
 
 /*
  * Audio
@@ -195,6 +208,38 @@ static struct atmel_nand_data __initdata ek_nand_data = {
 #endif
 };
 
+static struct sam9_smc_config __initdata ek_nand_smc_config = {
+	.ncs_read_setup		= 0,
+	.nrd_setup		= 1,
+	.ncs_write_setup	= 0,
+	.nwe_setup		= 1,
+
+	.ncs_read_pulse		= 3,
+	.nrd_pulse		= 3,
+	.ncs_write_pulse	= 3,
+	.nwe_pulse		= 3,
+
+	.read_cycle		= 5,
+	.write_cycle		= 5,
+
+	.mode			= AT91_SMC_READMODE | AT91_SMC_WRITEMODE | AT91_SMC_EXNWMODE_DISABLE,
+	.tdf_cycles		= 2,
+};
+
+static void __init ek_add_device_nand(void)
+{
+	/* setup bus-width (8 or 16) */
+	if (ek_nand_data.bus_width_16)
+		ek_nand_smc_config.mode |= AT91_SMC_DBW_16;
+	else
+		ek_nand_smc_config.mode |= AT91_SMC_DBW_8;
+
+	/* configure chip-select 3 (NAND) */
+	sam9_smc_configure(3, &ek_nand_smc_config);
+
+	at91_add_device_nand(&ek_nand_data);
+}
+
 
 /*
  * MCI (SD/MMC)
@@ -224,6 +269,7 @@ static struct gpio_led ek_leds[] = {
 		.default_trigger	= "heartbeat",
 	}
 };
+
 
 /*
  * I2C devices
@@ -303,13 +349,15 @@ static void __init ek_board_init(void)
 	/* SPI */
 	at91_add_device_spi(ek_spi_devices, ARRAY_SIZE(ek_spi_devices));
 	/* NAND */
-	at91_add_device_nand(&ek_nand_data);
+	ek_add_device_nand();
 	/* Ethernet */
 	at91_add_device_eth(&ek_macb_data);
 	/* MMC */
 	at91_add_device_mmc(0, &ek_mmc_data);
 	/* I2C */
 	at91_add_device_i2c(ek_i2c_devices, ARRAY_SIZE(ek_i2c_devices));
+	/* Compact Flash */
+	at91_add_device_cf(&ek_cf_data);
 	/* SSC (to AT73C213) */
 	at73c213_set_clk(&at73c213_data);
 	at91_add_device_ssc(AT91SAM9260_ID_SSC, ATMEL_SSC_TX);
@@ -317,6 +365,9 @@ static void __init ek_board_init(void)
 	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
 	/* Push Buttons */
 	ek_add_device_buttons();
+	/* shutdown controller, wakeup button (5 msec low) */
+	at91_sys_write(AT91_SHDW_MR, AT91_SHDW_CPTWK0_(10) | AT91_SHDW_WKMODE0_LOW
+				| AT91_SHDW_RTTWKEN);
 }
 
 MACHINE_START(AT91SAM9260EK, "Atmel AT91SAM9260-EK")

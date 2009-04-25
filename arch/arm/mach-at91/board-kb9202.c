@@ -25,7 +25,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 
-#include <mach/hardware.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
@@ -34,9 +33,9 @@
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 
+#include <mach/hardware.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
-
 #include <mach/at91rm9200_mc.h>
 
 #include "generic.h"
@@ -114,6 +113,48 @@ static struct atmel_nand_data __initdata kb9202_nand_data = {
 	.partition_info	= nand_partitions,
 };
 
+
+#if defined(CONFIG_FB_S1D15605)
+#warning "The Reset pin must be passed via platform_data, not this way"
+static struct resource kb9202_lcd_resources[] = {
+	[0] = {
+		.start	= AT91_CHIPSELECT_2,
+		.end	= AT91_CHIPSELECT_2 + 0x200FF,
+		.flags	= IORESOURCE_MEM
+	},
+	[1] = {	/* reset pin */
+		.start	= AT91_PIN_PC22,
+		.end	= AT91_PIN_PC22,
+		.flags	= IORESOURCE_MEM
+	},
+};
+
+static struct platform_device kb9202_lcd_device = {
+	.name		= "s1d15605fb",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(kb9202_lcd_resources),
+	.resource	= kb9202_lcd_resources,
+};
+
+static void __init kb9202_add_device_lcd(void)
+{
+ 	/* In case the boot loader did not set the chip select mode and timing */
+	at91_sys_write(AT91_SMC_CSR(2),
+		AT91_SMC_WSEN | AT91_SMC_NWS_(18) | AT91_SMC_TDF_(1) | AT91_SMC_DBW_8 |
+		AT91_SMC_RWSETUP_(1) | AT91_SMC_RWHOLD_(1));
+
+	/* Backlight pin = output, off */
+	at91_set_gpio_output(AT91_PIN_PC23, 0);
+
+	/* Reset pin = output, in reset */
+	at91_set_gpio_output(AT91_PIN_PC22, 0);
+
+	platform_device_register(&kb9202_lcd_device);
+}
+#else
+static void __init kb9202_add_device_lcd(void) {}
+#endif
+
 static void __init kb9202_board_init(void)
 {
 	/* Serial */
@@ -132,6 +173,8 @@ static void __init kb9202_board_init(void)
 	at91_add_device_spi(NULL, 0);
 	/* NAND */
 	at91_add_device_nand(&kb9202_nand_data);
+	/* LCD */
+	kb9202_add_device_lcd();
 }
 
 MACHINE_START(KB9200, "KB920x")
