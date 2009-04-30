@@ -451,13 +451,14 @@ static struct atmel_lcdfb_info __initdata aixle_lcdc_data;
 #if defined(CONFIG_BACKLIGHT_GPIO) || defined(CONFIG_BACKLIGHT_GPIO_MODULE)
 static void aixle_set_backlight(int value)
 {
-	// Specify the backlight pin
+	// Backlight pin is AT91_PIN_PE12
+
 	if (value > 0) {
 		//backlight on
-		at91_set_gpio_value(AT91_PIN_PB18, 1);
+		at91_set_gpio_value(AT91_PIN_PE12, 1);
 	} else {
 		// backlight off
-		at91_set_gpio_value(AT91_PIN_PB18, 0);
+		at91_set_gpio_value(AT91_PIN_PE12, 0);
 	}
 }
 
@@ -497,7 +498,7 @@ static struct gpio_keys_button aixle_buttons[] = {
 	},
 	{	/* PWR Button */
 		.code		= KEY_POWER,
-		.gpio		= AT91_PIN_PB31,
+		.gpio		= AT91_PIN_PB28,
 		.active_low	= 1,
 		.desc		= "Power Button",
 		.wakeup		= 1,
@@ -505,14 +506,14 @@ static struct gpio_keys_button aixle_buttons[] = {
 	},
 	{	/* VOL+ Button */
 		.code		= KEY_VOLUMEUP,
-		.gpio		= AT91_PIN_PB26,
+		.gpio		= AT91_PIN_PB29,
 		.active_low	= 1,
 		.desc		= "Volume+ Button",
 		.debounce_interval	= 40,
 	},
-	{	/* VOL- Button */
+	{	/* Vol- Button */
 		.code		= KEY_VOLUMEDOWN,
-		.gpio		= AT91_PIN_PB27,
+		.gpio		= AT91_PIN_PB30,
 		.active_low	= 1,
 		.desc		= "Volume- Button",
 		.debounce_interval	= 40,
@@ -522,6 +523,27 @@ static struct gpio_keys_button aixle_buttons[] = {
 		.gpio		= AT91_PIN_PB25,
 		.active_low	= 1,
 		.desc		= "Menu Button",
+		.debounce_interval	= 40,
+	},
+	{	/* CH+ Button */
+		.code		= KEY_CHANNELUP,
+		.gpio		= AT91_PIN_PB27,
+		.active_low	= 1,
+		.desc		= "Channel+ Button",
+		.debounce_interval	= 40,
+	},
+	{	/* CH- Button */
+		.code		= KEY_CHANNELDOWN,
+		.gpio		= AT91_PIN_PB26,
+		.active_low	= 1,
+		.desc		= "Channel- Button",
+		.debounce_interval	= 40,
+	},
+	{	/* AV Button */
+		.code		= KEY_VIDEO,
+		.gpio		= AT91_PIN_PB31,
+		.active_low	= 1,
+		.desc		= "AV Button",
 		.debounce_interval	= 40,
 	},
 };
@@ -555,6 +577,15 @@ static void __init aixle_add_device_buttons(void)
 	at91_set_gpio_input(AT91_PIN_PB27, 1);
 	at91_set_deglitch(AT91_PIN_PB27, 1);
 	
+	at91_set_gpio_input(AT91_PIN_PB28, 1);
+	at91_set_deglitch(AT91_PIN_PB28, 1);
+	
+	at91_set_gpio_input(AT91_PIN_PB29, 1);
+	at91_set_deglitch(AT91_PIN_PB29, 1);
+	
+	at91_set_gpio_input(AT91_PIN_PB30, 1);
+	at91_set_deglitch(AT91_PIN_PB30, 1);
+	
 	at91_set_gpio_input(AT91_PIN_PB31, 1);
 	at91_set_deglitch(AT91_PIN_PB31, 1);
 
@@ -575,16 +606,9 @@ static struct gpio_led aixle_leds[] = {
 		.active_low		= 1,
 		.default_trigger	= "nand-disk",
 	},
-	{	/* Green LED */
+	{	/* Power LED */
 		.name			= "power",
-		.gpio			= AT91_PIN_PB28,
-		.active_low		= 0,
-		.default_trigger	= "default-on",
-	},
-	{	/* Blue LED */
-		.name			= "standby",
-		.gpio			= AT91_PIN_PB29,
-		/* its actually active high, but this makes it turn on in standby mode */
+		.gpio			= AT91_PIN_PB18,
 		.active_low		= 1,
 		.default_trigger	= "default-on",
 	},
@@ -620,13 +644,6 @@ void __init aixle_add_device_ac97_codec(void){}
 
 static void __init aixle_board_init(void)
 {
-	/* LCD backlight enable ON */
-	at91_set_gpio_output(AT91_PIN_PB18, 1);
-	/* LCD enable OFF (enabled later by lcdc) */
-	at91_set_gpio_output(AT91_PIN_PD3, 0);
-	/* LCD reverse OFF */
-	at91_set_gpio_output(AT91_PIN_PD2, 0);
-
 	/* Serial */
 	at91_add_device_serial();
 	/* USB Host */
