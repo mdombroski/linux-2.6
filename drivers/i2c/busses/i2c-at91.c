@@ -30,8 +30,11 @@
 #include <mach/board.h>
 #include <mach/cpu.h>
 
-#define TWI_CLOCK		100000		/* Hz. max 400 Kbits/sec */
 
+/* Clockrate is configurable - max 400 Kbits/sec */
+static unsigned int clockrate = CONFIG_I2C_AT91_CLOCKRATE;
+module_param(clockrate, uint, 0);
+MODULE_PARM_DESC(clockrate, "The TWI clockrate");
 
 static struct clk *twi_clk;
 static void __iomem *twi_base;
@@ -52,7 +55,7 @@ static void __devinit at91_twi_hwinit(void)
 	at91_twi_write(AT91_TWI_CR, AT91_TWI_MSEN);	/* Set Master mode */
 
 	/* Calcuate clock dividers */
-	cdiv = (clk_get_rate(twi_clk) / (2 * TWI_CLOCK)) - 3;
+	cdiv = (clk_get_rate(twi_clk) / (2 * clockrate)) - 3;
 	cdiv = cdiv + 1;	/* round up */
 	ckdiv = 0;
 	while (cdiv > 255) {
@@ -60,11 +63,12 @@ static void __devinit at91_twi_hwinit(void)
 		cdiv = cdiv >> 1;
 	}
 
-	if (cpu_is_at91rm9200()) {			/* AT91RM9200 Errata #22 */
-		if (ckdiv > 5) {
-			printk(KERN_ERR "AT91 I2C: Invalid TWI_CLOCK value!\n");
-			ckdiv = 5;
-		}
+	if (cpu_is_at91rm9200() && (ckdiv > 5)) {	/* AT91RM9200 Errata #22 */
+		printk(KERN_ERR "AT91 I2C: Invalid TWI clockrate!\n");
+		ckdiv = 5;
+	} else if (ckdiv > 7) {
+		printk(KERN_ERR "AT91 I2C: Invalid TWI clockrate!\n");
+		ckdiv = 7;
 	}
 
 	at91_twi_write(AT91_TWI_CWGR, (ckdiv << 16) | (cdiv << 8) | cdiv);
@@ -226,7 +230,6 @@ static int __devinit at91_i2c_probe(struct platform_device *pdev)
 	adapter->algo = &at91_algorithm;
 	adapter->class = I2C_CLASS_HWMON;
 	adapter->dev.parent = &pdev->dev;
-	/* adapter->id == 0 ... only one TWI controller for now */
 
 	platform_set_drvdata(pdev, adapter);
 

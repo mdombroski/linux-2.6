@@ -750,7 +750,7 @@ void __init at91_add_device_ac97(struct atmel_ac97_data *data)
 	if (data->reset_pin)
 		at91_set_gpio_output(data->reset_pin, 0);
 
-	ac97_data = *ek_data;
+	ac97_data = *data;
 	platform_device_register(&at91sam9263_ac97_device);
 }
 #else

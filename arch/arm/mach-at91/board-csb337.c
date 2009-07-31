@@ -50,6 +50,7 @@ static void __init csb337_map_io(void)
 
 	/* Setup the LEDs */
 	at91_init_leds(AT91_PIN_PB0, AT91_PIN_PB1);
+	at91_set_gpio_output(AT91_PIN_PB2, 1);		/* third (unused) LED */
 
 	/* DBGU on ttyS0 */
 	at91_register_uart(0, 0, 0);

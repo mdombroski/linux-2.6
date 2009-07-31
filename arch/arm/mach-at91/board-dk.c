@@ -25,6 +25,7 @@
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/module.h>
+#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
 #include <linux/mtd/physmap.h>
@@ -69,6 +70,184 @@ static void __init dk_init_irq(void)
 {
 	at91rm9200_init_interrupts(NULL);
 }
+
+#if defined(CONFIG_FB_S1D13XXX) || defined(CONFIG_FB_S1D13XXX_MODULE)
+#include <video/s1d13xxxfb.h>
+#include <mach/ics1523.h>
+
+/* EPSON S1D13806 FB */
+static void dk_init_video(void)
+{
+	/* NWAIT Signal */
+	at91_set_A_periph(AT91_PIN_PC6, 0);
+
+	/* Initialization of the Static Memory Controller for Chip Select 2 */
+	at91_sys_write(AT91_SMC_CSR(2), AT91_SMC_DBW_16			/* 16 bit */
+				| AT91_SMC_WSEN | AT91_SMC_NWS_(4)	/* wait states */
+				| AT91_SMC_TDF_(1)			/* float time */
+	);
+
+	at91_ics1523_init();
+}
+
+/* CRT:    (active)   640x480 60Hz (PCLK=CLKI=25.175MHz)
+   Memory: Embedded SDRAM (MCLK=CLKI3=50.000MHz) (BUSCLK=60.000MHz) */
+static const struct s1d13xxxfb_regval dk_s1dfb_initregs[] = {
+	{S1DREG_MISC,			0x00},	/* Enable Memory/Register select bit */
+	{S1DREG_COM_DISP_MODE,		0x00},	/* disable display output */
+	{S1DREG_GPIO_CNF0,		0x00},
+	{S1DREG_GPIO_CNF1,		0x00},
+	{S1DREG_GPIO_CTL0,		0x08},
+	{S1DREG_GPIO_CTL1,		0x00},
+	{S1DREG_CLK_CNF,		0x01},	/* no divide, MCLK source is CLKI3 0x02*/
+	{S1DREG_LCD_CLK_CNF,		0x00},
+	{S1DREG_CRT_CLK_CNF,		0x00},
+	{S1DREG_MPLUG_CLK_CNF,		0x00},
+	{S1DREG_CPU2MEM_WST_SEL,	0x01},	/* 2*period(MCLK) - 4ns > period(BCLK) */
+	{S1DREG_SDRAM_REF_RATE,		0x03},	/* 32768 <= MCLK <= 50000 (MHz) */
+	{S1DREG_SDRAM_TC0,		0x00},	/* MCLK source freq (MHz): */
+	{S1DREG_SDRAM_TC1,		0x01},	/* 42 <= MCLK <= 50 */
+	{S1DREG_MEM_CNF,		0x80},	/* SDRAM Initialization - needed before mem access */
+	{S1DREG_PANEL_TYPE,		0x25},	/* std TFT 16bit, 8bit SCP format 2, single passive LCD */
+	{S1DREG_MOD_RATE,		0x00},	/* toggle every FPFRAME */
+	{S1DREG_LCD_DISP_HWIDTH,	0x4F},	/* 680 pix */
+	{S1DREG_LCD_NDISP_HPER,		0x12},	/* 152 pix */
+	{S1DREG_TFT_FPLINE_START,	0x01},	/* 13 pix */
+	{S1DREG_TFT_FPLINE_PWIDTH,	0x0B},	/* 96 pix */
+	{S1DREG_LCD_DISP_VHEIGHT0,	0xDF},
+	{S1DREG_LCD_DISP_VHEIGHT1,	0x01},	/* 480 lines */
+	{S1DREG_LCD_NDISP_VPER,		0x2C},	/* 44 lines */
+	{S1DREG_TFT_FPFRAME_START,	0x0A},	/* 10 lines */
+	{S1DREG_TFT_FPFRAME_PWIDTH,	0x01},	/* 2 lines */
+	{S1DREG_LCD_DISP_MODE,		0x05},  /* 16 bpp */
+	{S1DREG_LCD_MISC,		0x00},	/* dithering enabled, dual panel buffer enabled */
+	{S1DREG_LCD_DISP_START0,	0x00},
+	{S1DREG_LCD_DISP_START1,	0xC8},
+	{S1DREG_LCD_DISP_START2,	0x00},
+	{S1DREG_LCD_MEM_OFF0,		0x80},
+	{S1DREG_LCD_MEM_OFF1,		0x02},
+	{S1DREG_LCD_PIX_PAN,		0x00},
+	{S1DREG_LCD_DISP_FIFO_HTC,	0x3B},
+	{S1DREG_LCD_DISP_FIFO_LTC,	0x3C},
+	{S1DREG_CRT_DISP_HWIDTH,	0x4F},	/* 680 pix */
+	{S1DREG_CRT_NDISP_HPER,		0x13},	/* 160 pix */
+	{S1DREG_CRT_HRTC_START,		0x01},	/* 13 pix */
+	{S1DREG_CRT_HRTC_PWIDTH,	0x0B},	/* 96 pix */
+	{S1DREG_CRT_DISP_VHEIGHT0,	0xDF},
+	{S1DREG_CRT_DISP_VHEIGHT1,	0x01},	/* 480 lines */
+	{S1DREG_CRT_NDISP_VPER,		0x2B},	/* 44 lines */
+	{S1DREG_CRT_VRTC_START,		0x09},	/* 10 lines */
+	{S1DREG_CRT_VRTC_PWIDTH,	0x01},	/* 2 lines */
+	{S1DREG_TV_OUT_CTL,		0x10},
+	{S1DREG_CRT_DISP_MODE,		0x05},	/* 16 bpp */
+	{S1DREG_CRT_DISP_START0,	0x00},
+	{S1DREG_CRT_DISP_START1,	0x00},
+	{S1DREG_CRT_DISP_START2,	0x00},
+	{S1DREG_CRT_MEM_OFF0,		0x80},
+	{S1DREG_CRT_MEM_OFF1,		0x02},
+	{S1DREG_CRT_PIX_PAN,		0x00},
+	{S1DREG_CRT_DISP_FIFO_HTC,	0x3B},
+	{S1DREG_CRT_DISP_FIFO_LTC,	0x3C},
+	{S1DREG_LCD_CUR_CTL,		0x00},	/* inactive */
+	{S1DREG_LCD_CUR_START,		0x01},
+	{S1DREG_LCD_CUR_XPOS0,		0x00},
+	{S1DREG_LCD_CUR_XPOS1,		0x00},
+	{S1DREG_LCD_CUR_YPOS0,		0x00},
+	{S1DREG_LCD_CUR_YPOS1,		0x00},
+	{S1DREG_LCD_CUR_BCTL0,		0x00},
+	{S1DREG_LCD_CUR_GCTL0,		0x00},
+	{S1DREG_LCD_CUR_RCTL0,		0x00},
+	{S1DREG_LCD_CUR_BCTL1,		0x1F},
+	{S1DREG_LCD_CUR_GCTL1,		0x3F},
+	{S1DREG_LCD_CUR_RCTL1,		0x1F},
+	{S1DREG_LCD_CUR_FIFO_HTC,	0x00},
+	{S1DREG_CRT_CUR_CTL,		0x00},	/* inactive */
+	{S1DREG_CRT_CUR_START,		0x01},
+	{S1DREG_CRT_CUR_XPOS0,		0x00},
+	{S1DREG_CRT_CUR_XPOS1,		0x00},
+	{S1DREG_CRT_CUR_YPOS0,		0x00},
+	{S1DREG_CRT_CUR_YPOS1,		0x00},
+	{S1DREG_CRT_CUR_BCTL0,		0x00},
+	{S1DREG_CRT_CUR_GCTL0,		0x00},
+	{S1DREG_CRT_CUR_RCTL0,		0x00},
+	{S1DREG_CRT_CUR_BCTL1,		0x1F},
+	{S1DREG_CRT_CUR_GCTL1,		0x3F},
+	{S1DREG_CRT_CUR_RCTL1,		0x1F},
+	{S1DREG_CRT_CUR_FIFO_HTC,	0x00},
+	{S1DREG_BBLT_CTL0,		0x00},
+	{S1DREG_BBLT_CTL0,		0x00},
+	{S1DREG_BBLT_CC_EXP,		0x00},
+	{S1DREG_BBLT_OP,		0x00},
+	{S1DREG_BBLT_SRC_START0,	0x00},
+	{S1DREG_BBLT_SRC_START1,	0x00},
+	{S1DREG_BBLT_SRC_START2,	0x00},
+	{S1DREG_BBLT_DST_START0,	0x00},
+	{S1DREG_BBLT_DST_START1,	0x00},
+	{S1DREG_BBLT_DST_START2,	0x00},
+	{S1DREG_BBLT_MEM_OFF0,		0x00},
+	{S1DREG_BBLT_MEM_OFF1,		0x00},
+	{S1DREG_BBLT_WIDTH0,		0x00},
+	{S1DREG_BBLT_WIDTH1,		0x00},
+	{S1DREG_BBLT_HEIGHT0,		0x00},
+	{S1DREG_BBLT_HEIGHT1,		0x00},
+	{S1DREG_BBLT_BGC0,		0x00},
+	{S1DREG_BBLT_BGC1,		0x00},
+	{S1DREG_BBLT_FGC0,		0x00},
+	{S1DREG_BBLT_FGC1,		0x00},
+	{S1DREG_LKUP_MODE,		0x00},	/* LCD LUT r | LCD and CRT/TV LUT w */
+	{S1DREG_LKUP_ADDR,		0x00},
+	{S1DREG_PS_CNF,			0x00},	/* Power Save disable */
+	{S1DREG_PS_STATUS,		0x02},	/* LCD Panel down, mem up */
+	{S1DREG_CPU2MEM_WDOGT,		0x00},
+	{S1DREG_COM_DISP_MODE,		0x02},	/* enable CRT display output */
+};
+
+static struct s1d13xxxfb_pdata dk_s1dfb_pdata = {
+	.initregs		= dk_s1dfb_initregs,
+	.initregssize		= ARRAY_SIZE(dk_s1dfb_initregs),
+	.platform_init_video	= dk_init_video,
+};
+
+#define DK_FB_REG_BASE		AT91_CHIPSELECT_2
+#define DK_FB_VMEM_BASE		DK_FB_REG_BASE + SZ_2M
+#define DK_FB_VMEM_SIZE		(SZ_1M + SZ_256K)
+
+static struct resource dk_s1dfb_resource[] = {
+	[0] = {	/* video mem */
+		.name   = "s1d13806 memory",
+		.start  = DK_FB_VMEM_BASE,
+		.end    = DK_FB_VMEM_BASE + DK_FB_VMEM_SIZE -1,
+		.flags  = IORESOURCE_MEM,
+	},
+	[1] = {	/* video registers */
+		.name   = "s1d13806 registers",
+		.start  = DK_FB_REG_BASE,
+		.end    = DK_FB_REG_BASE + SZ_512 -1,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static u64 s1dfb_dmamask = DMA_BIT_MASK(32);
+
+static struct platform_device dk_s1dfb_device = {
+	.name		= "s1d13806fb",
+	.id		= -1,
+	.dev		= {
+			.dma_mask		= &s1dfb_dmamask,
+			.coherent_dma_mask	= DMA_BIT_MASK(32),
+			.platform_data		= &dk_s1dfb_pdata,
+	},
+	.resource	= dk_s1dfb_resource,
+	.num_resources	= ARRAY_SIZE(dk_s1dfb_resource),
+};
+
+static void __init dk_add_device_video(void)
+{
+	platform_device_register(&dk_s1dfb_device);
+}
+#else
+static void __init dk_add_device_video(void) {}
+#endif
 
 static struct at91_eth_data __initdata dk_eth_data = {
 	.phy_irq_pin	= AT91_PIN_PC4,
@@ -219,8 +398,12 @@ static void __init dk_board_init(void)
 	platform_device_register(&dk_flash);
 	/* LEDs */
 	at91_gpio_leds(dk_leds, ARRAY_SIZE(dk_leds));
+	/* SSC (to LM4549 audio codec) */
+	at91_add_device_ssc(AT91RM9200_ID_SSC1, ATMEL_SSC_TD | ATMEL_SSC_RX);
+	/* SSC (to SI3021 line interface) */
+	at91_add_device_ssc(AT91RM9200_ID_SSC2, ATMEL_SSC_TD | ATMEL_SSC_TK | ATMEL_SSC_RD | ATMEL_SSC_RF);
 	/* VGA */
-//	dk_add_device_video();
+	dk_add_device_video();
 }
 
 MACHINE_START(AT91RM9200DK, "Atmel AT91RM9200-DK")

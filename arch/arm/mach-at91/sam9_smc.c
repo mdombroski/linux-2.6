@@ -9,7 +9,7 @@
  */
 
 #include <linux/module.h>
-#include <linux/io.h>
+#include <asm/io.h>
 
 #include <mach/at91sam9_smc.h>
 

@@ -63,3 +63,10 @@ config IXP4XX_ETH
 	help
 	  Say Y here if you want to use built-in Ethernet ports
 	  on IXP4xx processor.
+
+config ARM_KS8695_ETHER_AV
+	tristate "KS8695 Ethernet support"
+	depends on ARM && ARCH_KS8695
+	help
+	  If you wish to compile a kernel for an KS8695-based board
+	  and enable Ethernet support, then select this option.

@@ -25,7 +25,6 @@
 #include <linux/module.h>
 #include <linux/device.h>
 
-#include <mach/hardware.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <asm/irq.h>
@@ -34,6 +33,7 @@
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 
+#include <mach/hardware.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
 
@@ -94,7 +94,7 @@ static struct at91_mmc_data __initdata eb9200_mmc_data = {
 static struct i2c_board_info __initdata eb9200_i2c_devices[] = {
 	{
 		I2C_BOARD_INFO("24c512", 0x50),
-	},
+	}
 };
 
 

@@ -90,6 +90,16 @@ static struct at91_udc_data __initdata ek_udc_data = {
 	.pullup_pin	= 0,		/* pull-up driven by UDC */
 };
 
+/*
+ * Compact Flash (via Expansion Connector)
+ */
+static struct at91_cf_data __initdata ek_cf_data = {
+	// .irq_pin	= ... user defined
+	// .det_pin	= ... user defined
+	// .vcc_pin	= ... user defined
+	// .rst_pin	= ... user defined
+	.chipselect	= 4,
+};
 
 /*
  * Audio
@@ -260,6 +270,7 @@ static struct gpio_led ek_leds[] = {
 	}
 };
 
+
 /*
  * I2C devices
  */
@@ -345,6 +356,8 @@ static void __init ek_board_init(void)
 	at91_add_device_mmc(0, &ek_mmc_data);
 	/* I2C */
 	at91_add_device_i2c(ek_i2c_devices, ARRAY_SIZE(ek_i2c_devices));
+	/* Compact Flash */
+	at91_add_device_cf(&ek_cf_data);
 	/* SSC (to AT73C213) */
 	at73c213_set_clk(&at73c213_data);
 	at91_add_device_ssc(AT91SAM9260_ID_SSC, ATMEL_SSC_TX);
@@ -352,6 +365,9 @@ static void __init ek_board_init(void)
 	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
 	/* Push Buttons */
 	ek_add_device_buttons();
+	/* shutdown controller, wakeup button (5 msec low) */
+	at91_sys_write(AT91_SHDW_MR, AT91_SHDW_CPTWK0_(10) | AT91_SHDW_WKMODE0_LOW
+				| AT91_SHDW_RTTWKEN);
 }
 
 MACHINE_START(AT91SAM9260EK, "Atmel AT91SAM9260-EK")

@@ -135,14 +135,13 @@ static struct spi_board_info cap9adk_spi_devices[] = {
 	{
 		.modalias	= "ads7846",
 		.chip_select	= 3,		/* can be 2 or 3, depending on J2 jumper */
-		.max_speed_hz	= 125000 * 26,	/* (max sample rate @ 3V) * (cmd + data + overhead) */
+		.max_speed_hz	= 125000 * 16,	/* max sample rate * clocks per sample */
 		.bus_num	= 0,
 		.platform_data	= &ads_info,
 		.irq		= AT91_PIN_PC4,
 	},
 #endif
 };
-
 
 /*
  * MCI (SD/MMC)

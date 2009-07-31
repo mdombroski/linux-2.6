@@ -47,6 +47,12 @@ config ARCH_AT91CAP9
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
 
+config ARCH_AT572D940HF
+	bool "AT572D940HF"
+	select CPU_ARM926T
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+
 config ARCH_AT91X40
 	bool "AT91x40"
 
@@ -67,7 +73,7 @@ config MACH_ONEARM
 	depends on ARCH_AT91RM9200
 	help
 	  Select this if you are using Ajeco's 1ARM Single Board Computer.
-	  <http://www.ajeco.fi/products.htm>
+	  <http://www.ajeco.fi/eng/products_e.htm>
 
 config ARCH_AT91RM9200DK
 	bool "Atmel AT91RM9200-DK Development board"
@@ -116,7 +122,7 @@ config MACH_KB9200
 	depends on ARCH_AT91RM9200
 	help
 	  Select this if you are using KwikByte's KB920x board.
-	  <http://kwikbyte.com/KB9202_description_new.htm>
+	  <http://www.kwikbyte.com/KB9202.html>
 
 config MACH_PICOTUX2XX
 	bool "picotux 200"
@@ -131,12 +137,37 @@ config MACH_KAFA
 	help
 	  Select this if you are using Sperry-Sun's KAFA board.
 
+config MACH_CHUB
+	bool "Promwad Chub board"
+	depends on ARCH_AT91RM9200
+	help
+	  Select this if you are using Promwad's Chub board.
+
+config MACH_HOMEMATIC
+	bool "eQ-3 HomeMatic"
+	depends on ARCH_AT91RM9200
+	help
+	  Select this if you are using eQ-3's HomeMatic device.
+	  <http://www.eq-3.com>
+
 config MACH_ECBAT91
 	bool "emQbit ECB_AT91 SBC"
 	depends on ARCH_AT91RM9200
 	help
 	  Select this if you are using emQbit's ECB_AT91 board.
 	  <http://wiki.emqbit.com/free-ecb-at91>
+
+config MACH_SWEDATMS
+	bool "Sweda TMS Board"
+	depends on ARCH_AT91RM9200
+	help
+	  Select this if you are using Sweda TMS-100 board.
+
+config MACH_TT9200
+	bool "Toptech TT9200"
+	depends on ARCH_AT91RM9200
+	help
+	  Select this if you are using Toptech's TT9200 board.
 
 config MACH_YL9200
 	bool "ucDragon YL-9200"
@@ -205,6 +236,19 @@ config MACH_QIL_A9260
 	  Select this if you are using a Calao Systems QIL-A9260 Board.
 	  <http://www.calao-systems.com>
 
+config MACH_SBC35_A9260
+	bool "CALAO SBC35-A9260"
+	depends on ARCH_AT91SAM9260
+	help
+	  Select this if you are using a Calao Systems SBC35-A9260.
+	  <http://www.calao-systems.com>
+
+config MACH_NEOCORE926
+	bool "Adeneo NEOCORE926"
+	depends on ARCH_AT91SAM9263
+	help
+	  Select this if you are using the Adeneo Neocore 926 board.
+
 endif
 
 # ----------------------------------------------------------
@@ -242,6 +286,20 @@ config MACH_USB_A9263
 	  Select this if you are using a Calao Systems USB-A9263.
 	  <http://www.calao-systems.com>
 
+config MACH_CSB737
+	bool "Cogent CSB737 System-on-Module"
+	depends on ARCH_AT91SAM9263
+	help
+	  Select this if you are using Cogent's CSB737 System-on-module.
+	  <http://www.cogcomp.com/csb_csb737.htm>
+
+config MACH_TOTEMNOVA
+	bool "TotemNova Micronova industrial supervisor"
+	depends on ARCH_AT91SAM9263
+	help
+	  Select this if you are using Micronova's TotemNova industrial supervisor
+	  <http://www.micronovasrl.com>
+
 config MACH_NEOCORE926
 	bool "Adeneo NEOCORE926"
 	depends on ARCH_AT91SAM9263
@@ -276,6 +334,27 @@ config MACH_AT91SAM9G20EK
 	help
 	  Select this if you are using Atmel's AT91SAM9G20-EK Evaluation Kit.
 
+config MACH_USB_A9G20
+	bool "CALAO USB-A9G20"
+	depends on ARCH_AT91SAM9G20
+	help
+	  Select this if you are using a Calao Systems USB-A9G20.
+	  <http://www.calao-systems.com>
+
+config MACH_QIL_A9G20
+	bool "CALAO QIL-A9G20"
+	depends on ARCH_AT91SAM9G20
+	help
+	  Select this if you are using a Calao Systems QIL-A9G20.
+	  <http://www.calao-systems.com>
+
+config MACH_SBC35_A9G20
+	bool "CALAO SBC35-A9G20"
+	depends on ARCH_AT91SAM9G20
+	help
+	  Select this if you are using a Calao Systems SBC35-A9G20.
+	  <http://www.calao-systems.com>
+
 endif
 
 # ----------------------------------------------------------
@@ -290,6 +369,21 @@ config MACH_AT91CAP9ADK
 	help
 	  Select this if you are using Atmel's AT91CAP9A-DK Evaluation Kit.
 	  <http://www.atmel.com/dyn/products/tools_card.asp?tool_id=4138>
+
+endif
+
+# ----------------------------------------------------------
+
+if ARCH_AT572D940HF
+
+comment "AT572D940HF Board Type"
+
+config MACH_AT572D940HFEB
+	bool "AT572D940HF-EK"
+	depends on ARCH_AT572D940HF
+	help
+	  Select this if you are using Atmel's AT572D940HF-EK evaluation kit.
+	  <http://www.atmel.com/products/diopsis/default.asp>
 
 endif
 
@@ -315,13 +409,13 @@ comment "AT91 Board Options"
 
 config MTD_AT91_DATAFLASH_CARD
 	bool "Enable DataFlash Card support"
-	depends on (ARCH_AT91RM9200DK || MACH_AT91RM9200EK || MACH_AT91SAM9260EK || MACH_AT91SAM9261EK || MACH_AT91SAM9263EK || MACH_AT91SAM9G20EK || MACH_ECBAT91 || MACH_SAM9_L9260 || MACH_AT91CAP9ADK || MACH_NEOCORE926)
+	depends on (ARCH_AT91RM9200DK || MACH_AT91RM9200EK || MACH_AT91SAM9260EK || MACH_AT91SAM9261EK || MACH_AT91SAM9263EK || MACH_AT91SAM9G20EK || MACH_ECBAT91 || MACH_SAM9_L9260 || MACH_AT91CAP9ADK || MACH_AT572D940HFEB || MACH_TOTEMNOVA || MACH_NEOCORE926)
 	help
 	  Enable support for the DataFlash card.
 
 config MTD_NAND_ATMEL_BUSWIDTH_16
 	bool "Enable 16-bit data bus interface to NAND flash"
-	depends on (MACH_AT91SAM9260EK || MACH_AT91SAM9261EK || MACH_AT91SAM9263EK || MACH_AT91SAM9G20EK || MACH_AT91CAP9ADK)
+	depends on (MACH_AT91SAM9260EK || MACH_AT91SAM9261EK || MACH_AT91SAM9263EK || MACH_AT91SAM9G20EK || MACH_AT91CAP9ADK || MACH_AT572D940HFEB)
 	help
 	  On AT91SAM926x boards both types of NAND flash can be present
 	  (8 and 16 bit data bus width).
@@ -350,12 +444,12 @@ config AT91_SLOW_CLOCK
 	  need to be completely re-initialized.
 
 config AT91_TIMER_HZ
-       int "Kernel HZ (jiffies per second)"
-       range 32 1024
-       depends on ARCH_AT91
-       default "128" if ARCH_AT91RM9200
-       default "100"
-       help
+	int "Kernel HZ (jiffies per second)"
+	range 32 1024
+	depends on ARCH_AT91
+	default "128" if ARCH_AT91RM9200
+	default "100"
+	help
 	  On AT91rm9200 chips where you're using a system clock derived
 	  from the 32768 Hz hardware clock, this tick rate should divide
 	  it exactly: use a power-of-two value, such as 128 or 256, to

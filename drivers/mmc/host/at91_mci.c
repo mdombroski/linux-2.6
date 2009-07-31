@@ -202,7 +202,7 @@ static inline void at91_mci_sg_to_dma(struct at91mci_host *host, struct mmc_data
 	len = data->sg_len;
 
 	/* AT91SAM926[0/3] Data Write Operation and number of bytes erratum */
-	if (cpu_is_at91sam9260() || cpu_is_at91sam9263())
+	if (cpu_is_at91sam9260() || cpu_is_at91sam9263() || cpu_is_at91sam9g20())
 		if (host->total_length == 12)
 			memset(dmabuf, 0, 12);
 
@@ -462,7 +462,7 @@ static void at91_mci_enable(struct at91mci_host *host)
 	at91_mci_write(host, AT91_MCI_DTOR, AT91_MCI_DTOMUL_1M | AT91_MCI_DTOCYC);
 	mr = AT91_MCI_PDCMODE | 0x34a;
 
-	if (cpu_is_at91sam9260() || cpu_is_at91sam9263())
+	if (cpu_is_at91sam9260() || cpu_is_at91sam9263() || cpu_is_at91sam9g20())
 		mr |= AT91_MCI_RDPROOF | AT91_MCI_WRPROOF;
 
 	at91_mci_write(host, AT91_MCI_MR, mr);
@@ -618,7 +618,7 @@ static void at91_mci_send_command(struct at91mci_host *host, struct mmc_command 
 				 * AT91SAM926[0/3] Data Write Operation and
 				 * number of bytes erratum
 				 */
-				if (cpu_is_at91sam9260 () || cpu_is_at91sam9263())
+				if (cpu_is_at91sam9260 () || cpu_is_at91sam9263() || cpu_is_at91sam9g20())
 					if (host->total_length < 12)
 						host->total_length = 12;
 
@@ -1018,7 +1018,7 @@ static int __init at91_mci_probe(struct platform_device *pdev)
 	host->bus_mode = 0;
 	host->board = pdev->dev.platform_data;
 	if (host->board->wire4) {
-		if (cpu_is_at91sam9260() || cpu_is_at91sam9263())
+		if (cpu_is_at91sam9260() || cpu_is_at91sam9263() || cpu_is_at91sam9g20())
 			mmc->caps |= MMC_CAP_4_BIT_DATA;
 		else
 			dev_warn(&pdev->dev, "4 wire bus mode not supported"

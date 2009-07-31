@@ -220,7 +220,7 @@ static irqreturn_t at91ether_phy_interrupt(int irq, void *dev_id)
 		if (!(phy & (1 << 0)))
 			goto done;
 	}
-	else if (lp->phy_type == MII_KS8721_ID) {
+	else if ((lp->phy_type == MII_KS8721_ID) || (lp->phy_type == MII_KSZ8041_ID)) {
 		read_phy(lp->phy_address, MII_TPISTATUS, &phy);		/* ack interrupt in Micrel PHY */
 		if (!(phy & ((1 << 2) | 1)))
 			goto done;
@@ -286,7 +286,7 @@ static void enable_phyirq(struct net_device *dev)
 		dsintr = (1 << 15) | ( 1 << 14);
 		write_phy(lp->phy_address, MII_BCMINTR_REG, dsintr);
 	}
-	else if (lp->phy_type == MII_KS8721_ID) {	/* for Micrel PHY */
+	else if ((lp->phy_type == MII_KS8721_ID) || (lp->phy_type == MII_KSZ8041_ID)) {	/* for Micrel PHY */
 		dsintr = (1 << 10) | ( 1 << 8);
 		write_phy(lp->phy_address, MII_TPISTATUS, dsintr);
 	}
@@ -341,7 +341,7 @@ static void disable_phyirq(struct net_device *dev)
 		dsintr = ~(1 << 14);
 		write_phy(lp->phy_address, MII_BCMINTR_REG, dsintr);
 	}
-	else if (lp->phy_type == MII_KS8721_ID) {	/* for Micrel PHY */
+	else if ((lp->phy_type == MII_KS8721_ID) || (lp->phy_type == MII_KSZ8041_ID)) {	/* for Micrel PHY */
 		read_phy(lp->phy_address, MII_TPISTATUS, &dsintr);
 		dsintr = ~((1 << 10) | (1 << 8));
 		write_phy(lp->phy_address, MII_TPISTATUS, dsintr);
@@ -842,7 +842,7 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
  */
 static struct net_device_stats *at91ether_stats(struct net_device *dev)
 {
-	int ale, lenerr, seqe, lcol, ecol;
+	int ale, lenerr, seqe, ecol;
 
 	if (netif_running(dev)) {
 		dev->stats.rx_packets += at91_emac_read(AT91_EMAC_OK);		/* Good frames received */
@@ -861,12 +861,11 @@ static struct net_device_stats *at91ether_stats(struct net_device *dev)
 		dev->stats.tx_carrier_errors += at91_emac_read(AT91_EMAC_CSE);	/* Carrier Sense errors */
 		dev->stats.tx_heartbeat_errors += at91_emac_read(AT91_EMAC_SQEE);/* Heartbeat error */
 
-		lcol = at91_emac_read(AT91_EMAC_LCOL);
+		dev->stats.tx_window_errors += at91_emac_read(AT91_EMAC_LCOL);	/* Late collisions */
 		ecol = at91_emac_read(AT91_EMAC_ECOL);
-		dev->stats.tx_window_errors += lcol;			/* Late collisions */
-		dev->stats.tx_aborted_errors += ecol;			/* 16 collisions */
+		dev->stats.tx_aborted_errors += ecol;				/* 16 collisions */
 
-		dev->stats.collisions += (at91_emac_read(AT91_EMAC_SCOL) + at91_emac_read(AT91_EMAC_MCOL) + lcol + ecol);
+		dev->stats.collisions += (at91_emac_read(AT91_EMAC_SCOL) + at91_emac_read(AT91_EMAC_MCOL) + ecol);
 	}
 	return &dev->stats;
 }
@@ -887,6 +886,7 @@ static void at91ether_rx(struct net_device *dev)
 	while (dlist->descriptors[lp->rxBuffIndex].addr & EMAC_DESC_DONE) {
 		p_recv = dlist->recv_buf[lp->rxBuffIndex];
 		pktlen = dlist->descriptors[lp->rxBuffIndex].size & 0x7ff;	/* Length of frame including FCS */
+		pktlen = pktlen - 4;		/* omit 4-byte checksum */
 		skb = dev_alloc_skb(pktlen + 2);
 		if (skb != NULL) {
 			skb_reserve(skb, 2);
@@ -990,14 +990,21 @@ static int __init at91ether_setup(unsigned long phy_type, unsigned short phy_add
 	struct net_device *dev;
 	struct at91_private *lp;
 	unsigned int val;
-	int res;
+	struct resource *res;
+	int ret;
 
 	dev = alloc_etherdev(sizeof(struct at91_private));
 	if (!dev)
 		return -ENOMEM;
 
-	dev->base_addr = AT91_VA_BASE_EMAC;
-	dev->irq = AT91RM9200_ID_EMAC;
+	/* Get I/O base address and IRQ */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		free_netdev(dev);
+		return -ENODEV;
+	}
+	dev->base_addr = res->start;
+	dev->irq = platform_get_irq(pdev, 0);
 
 	/* Install the interrupt handler */
 	if (request_irq(dev->irq, at91ether_interrupt, 0, dev->name, dev)) {
@@ -1062,12 +1069,12 @@ static int __init at91ether_setup(unsigned long phy_type, unsigned short phy_add
 	lp->phy_address = phy_address;	/* MDI address of PHY */
 
 	/* Register the network interface */
-	res = register_netdev(dev);
-	if (res) {
+	ret = register_netdev(dev);
+	if (ret) {
 		free_irq(dev->irq, dev);
 		free_netdev(dev);
 		dma_free_coherent(NULL, sizeof(struct recv_desc_bufs), lp->dlist, (dma_addr_t)lp->dlist_phys);
-		return res;
+		return ret;
 	}
 
 	/* Determine current link speed */
@@ -1083,7 +1090,7 @@ static int __init at91ether_setup(unsigned long phy_type, unsigned short phy_add
 		init_timer(&lp->check_timer);
 		lp->check_timer.data = (unsigned long)dev;
 		lp->check_timer.function = at91ether_check_link;
-	} else if (lp->board_data.phy_irq_pin >= 32)
+	} else if (lp->board_data.phy_irq_pin >= NR_AIC_IRQS)
 		gpio_request(lp->board_data.phy_irq_pin, "ethernet_phy");
 
 	/* Display ethernet banner */
@@ -1106,6 +1113,8 @@ static int __init at91ether_setup(unsigned long phy_type, unsigned short phy_add
 		printk(KERN_INFO "%s: National Semiconductor DP83848 PHY\n", dev->name);
 	else if (phy_type == MII_AC101L_ID)
 		printk(KERN_INFO "%s: Altima AC101L PHY\n", dev->name);
+	else if (phy_type == MII_KSZ8041_ID)
+		printk(KERN_INFO "%s: Micrel KSZ8041 PHY\n", dev->name);
 	else if (phy_type == MII_KS8721_ID)
 		printk(KERN_INFO "%s: Micrel KS8721 PHY\n", dev->name);
 	else if (phy_type == MII_T78Q21x3_ID)
@@ -1151,6 +1160,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
 			case MII_DP83847_ID:		/* National Semiconductor DP83847:  */
 			case MII_DP83848_ID:		/* National Semiconductor DP83848:  */
 			case MII_AC101L_ID:		/* Altima AC101L: PHY_ID1 = 0x22, PHY_ID2 = 0x5520 */
+			case MII_KSZ8041_ID:		/* Micrel KSZ8041: PHY_ID1 = 0x22, PHY_ID2 = 0x1512 */
 			case MII_KS8721_ID:		/* Micrel KS8721: PHY_ID1 = 0x22, PHY_ID2 = 0x1610 */
 			case MII_T78Q21x3_ID:		/* Teridian 78Q21x3: PHY_ID1 = 0x0E, PHY_ID2 = 7237 */
 			case MII_LAN83C185_ID:		/* SMSC LAN83C185: PHY_ID1 = 0x0007, PHY_ID2 = 0xC0A1 */
@@ -1171,7 +1181,7 @@ static int __devexit at91ether_remove(struct platform_device *pdev)
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct at91_private *lp = netdev_priv(dev);
 
-	if (lp->board_data.phy_irq_pin >= 32)
+	if (lp->board_data.phy_irq_pin >= NR_AIC_IRQS)
 		gpio_free(lp->board_data.phy_irq_pin);
 
 	unregister_netdev(dev);

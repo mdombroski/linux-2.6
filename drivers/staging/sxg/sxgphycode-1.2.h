@@ -1,7 +1,7 @@
 /*
  * Copyright ? 1997-2008 Alacritech, Inc. All rights reserved
  *
- * $Id: sxgphycode.h,v 1.2 2008/10/02 01:44:07 Exp $
+ * $Id: sxgphycode-1.2.h,v 1.1 2009/05/12 21:01:46 andrew Exp $
  *
  * sxgphycode.h:
  *

@@ -16,6 +16,7 @@ extern void __init at91sam9263_initialize(unsigned long main_clock);
 extern void __init at91sam9rl_initialize(unsigned long main_clock);
 extern void __init at91x40_initialize(unsigned long main_clock);
 extern void __init at91cap9_initialize(unsigned long main_clock);
+extern void __init at572d940hf_initialize(unsigned long main_clock);
 
  /* Interrupts */
 extern void __init at91rm9200_init_interrupts(unsigned int priority[]);
@@ -25,6 +26,7 @@ extern void __init at91sam9263_init_interrupts(unsigned int priority[]);
 extern void __init at91sam9rl_init_interrupts(unsigned int priority[]);
 extern void __init at91x40_init_interrupts(unsigned int priority[]);
 extern void __init at91cap9_init_interrupts(unsigned int priority[]);
+extern void __init at572d940hf_init_interrupts(unsigned int priority[]);
 extern void __init at91_aic_init(unsigned int priority[]);
 
  /* Timer */
@@ -41,6 +43,7 @@ extern void __init at91_clock_associate(const char *id, struct device *dev, cons
  /* Power Management */
 extern void at91_irq_suspend(void);
 extern void at91_irq_resume(void);
+extern int at91_suspend_entering_slow_clock(void);
 
  /* GPIO */
 #define AT91RM9200_PQFP		3	/* AT91RM9200 PQFP package has 3 banks */

@@ -61,9 +61,9 @@
  * several NAND_CMD_RNDOUT during read
  */
 static struct nand_ecclayout atmel_oobinfo_large = {
-	.eccbytes = 4,
-	.eccpos = {60, 61, 62, 63},
-	.oobfree = {
+	.eccbytes	= 4,
+	.eccpos		= {60, 61, 62, 63},
+	.oobfree	= {
 		{2, 58}
 	},
 };
@@ -74,9 +74,9 @@ static struct nand_ecclayout atmel_oobinfo_large = {
  * several NAND_CMD_RNDOUT during read
  */
 static struct nand_ecclayout atmel_oobinfo_small = {
-	.eccbytes = 4,
-	.eccpos = {0, 1, 2, 3},
-	.oobfree = {
+	.eccbytes	= 4,
+	.eccpos		= {0, 1, 2, 3},
+	.oobfree	= {
 		{6, 10}
 	},
 };
@@ -188,7 +188,6 @@ static int atmel_nand_calculate(struct mtd_info *mtd,
 {
 	struct nand_chip *nand_chip = mtd->priv;
 	struct atmel_nand_host *host = nand_chip->priv;
-	uint32_t *eccpos = nand_chip->ecc.layout->eccpos;
 	unsigned int ecc_value;
 
 	/* get the first 2 ECC bytes */
@@ -366,6 +365,17 @@ static const char *part_probes[] = { "cmdlinepart", NULL };
 #endif
 
 /*
+ * Mode strings for various ECC types
+ * (This should correspond to nand_ecc_modes_t enum in include/linux/mtd/nand.h)
+ */
+static const char *ecc_modes[] __initdata = {
+	"No",
+	"Software",
+	"Hardware",
+	"Hardware with Syndrome"
+};
+
+/*
  * Probe for the NAND device.
  */
 static int __init atmel_nand_probe(struct platform_device *pdev)
@@ -429,12 +439,9 @@ static int __init atmel_nand_probe(struct platform_device *pdev)
 	if (no_ecc)
 		nand_chip->ecc.mode = NAND_ECC_NONE;
 	if (hard_ecc && regs) {
-		host->ecc = ioremap(regs->start, regs->end - regs->start + 1);
-		if (host->ecc == NULL) {
-			printk(KERN_ERR "atmel_nand: ioremap failed\n");
-			res = -EIO;
-			goto err_ecc_ioremap;
-		}
+		host->ecc = (void __force __iomem *) (AT91_VA_BASE_SYS - AT91_BASE_SYS);
+		host->ecc += regs->start;
+
 		nand_chip->ecc.mode = NAND_ECC_HW;
 		nand_chip->ecc.calculate = atmel_nand_calculate;
 		nand_chip->ecc.correct = atmel_nand_correct;
@@ -508,6 +515,11 @@ static int __init atmel_nand_probe(struct platform_device *pdev)
 		}
 	}
 
+	printk(KERN_INFO "AT91 NAND: %i-bit, %s ECC\n",
+		(nand_chip->options & NAND_BUSWIDTH_16) ? 16 : 8,
+		ecc_modes[nand_chip->ecc.mode]
+	);
+
 	/* second phase scan */
 	if (nand_scan_tail(mtd)) {
 		res = -ENXIO;
@@ -549,8 +561,6 @@ err_no_card:
 	platform_set_drvdata(pdev, NULL);
 	if (host->ecc)
 		iounmap(host->ecc);
-err_ecc_ioremap:
-	iounmap(host->io_base);
 err_nand_ioremap:
 	kfree(host);
 	return res;

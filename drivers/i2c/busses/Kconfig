@@ -275,6 +275,14 @@ config I2C_AT91
 	  to support combined I2C messages.  Use the i2c-gpio driver
 	  unless your system can cope with those limitations.
 
+config I2C_AT91_CLOCKRATE
+	prompt "Atmel AT91 I2C/TWI clock-rate"
+	depends on I2C_AT91
+	int
+	default 100000
+	help
+	  Set the AT91 I2C/TWI clock-rate.
+
 config I2C_AU1550
 	tristate "Au1550/Au1200 SMBus interface"
 	depends on SOC_AU1550 || SOC_AU1200

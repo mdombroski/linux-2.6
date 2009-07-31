@@ -48,6 +48,9 @@
 /* Altima AC101L PHY */
 #define MII_AC101L_ID		0x00225520
 
+/* Micrel KSZ8041 PHY */
+#define MII_KSZ8041_ID		0x00221510
+
 /* Micrel KS8721 PHY */
 #define MII_KS8721_ID		0x00221610
 

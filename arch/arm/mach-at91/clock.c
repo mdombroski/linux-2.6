@@ -29,6 +29,7 @@
 #include <mach/cpu.h>
 
 #include "clock.h"
+#include "generic.h"
 
 
 /*
@@ -273,6 +274,23 @@ EXPORT_SYMBOL(clk_get_rate);
 
 /*------------------------------------------------------------------------*/
 
+#ifdef CONFIG_PM
+
+int clk_must_disable(struct clk *clk)
+{
+	if (!at91_suspend_entering_slow_clock())
+		return 0;
+
+	while (clk->parent)
+		clk = clk->parent;
+	return clk != &clk32k;
+}
+EXPORT_SYMBOL(clk_must_disable);
+
+#endif
+
+/*------------------------------------------------------------------------*/
+
 #ifdef CONFIG_AT91_PROGRAMMABLE_CLOCKS
 
 /*
@@ -361,7 +379,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 }
 EXPORT_SYMBOL(clk_set_parent);
 
-/* establish PCK0..PCK3 parentage and rate */
+/* establish PCK0..PCK4 parentage and rate */
 static void __init init_programmable_clock(struct clk *clk)
 {
 	struct clk	*parent;
@@ -601,7 +619,7 @@ int __init at91_clock_init(unsigned long main_clock)
 		uhpck.pmc_mask = AT91RM9200_PMC_UHP;
 		udpck.pmc_mask = AT91RM9200_PMC_UDP;
 		at91_sys_write(AT91_PMC_SCER, AT91RM9200_PMC_MCKUDP);
-	} else if (cpu_is_at91sam9260() || cpu_is_at91sam9261() || cpu_is_at91sam9263() || cpu_is_at91sam9g20()) {
+	} else if (cpu_is_at91sam9260() || cpu_is_at91sam9261() || cpu_is_at91sam9263() || cpu_is_at91sam9g20() || cpu_is_at572d940hf()) {
 		uhpck.pmc_mask = AT91SAM926x_PMC_UHP;
 		udpck.pmc_mask = AT91SAM926x_PMC_UDP;
 	} else if (cpu_is_at91cap9()) {
@@ -639,7 +657,7 @@ int __init at91_clock_init(unsigned long main_clock)
 		if (mckr & AT91_PMC_PDIV)
 			freq /= 2;		/* processor clock division */
 	} else
-		mck.rate_hz = freq / (1 << ((mckr & AT91_PMC_MDIV) >> 8));      /* mdiv */
+		mck.rate_hz = freq / (1 << ((mckr & AT91_PMC_MDIV) >> 8));	/* mdiv */
 
 	/* Register the PMC's standard clocks */
 	for (i = 0; i < ARRAY_SIZE(standard_pmc_clocks); i++)

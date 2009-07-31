@@ -140,7 +140,7 @@ static struct spi_board_info ek_spi_devices[] = {
 	{
 		.modalias	= "ads7846",
 		.chip_select	= 3,
-		.max_speed_hz	= 125000 * 26,	/* (max sample rate @ 3V) * (cmd + data + overhead) */
+		.max_speed_hz	= 125000 * 16,	/* max sample rate * clocks per sample */
 		.bus_num	= 0,
 		.platform_data	= &ads_info,
 		.irq		= AT91SAM9263_ID_IRQ1,
@@ -255,6 +255,7 @@ static struct i2c_board_info __initdata ek_i2c_devices[] = {
 	},
 	/* more devices can be added using expansion connectors */
 };
+
 
 /*
  * LCD Controller
@@ -431,6 +432,9 @@ static void __init ek_board_init(void)
 	/* LEDs */
 	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
 	at91_pwm_leds(ek_pwm_led, ARRAY_SIZE(ek_pwm_led));
+	/* shutdown controller, wakeup button (5 msec low) */
+	at91_sys_write(AT91_SHDW_MR, AT91_SHDW_CPTWK0_(10) | AT91_SHDW_WKMODE0_LOW
+				| AT91_SHDW_RTTWKEN);
 }
 
 MACHINE_START(AT91SAM9263EK, "Atmel AT91SAM9263-EK")

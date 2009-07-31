@@ -24,7 +24,7 @@
 #include <mach/at91sam9_smc.h>
 
 #include "generic.h"
-
+#include "sam9_smc.h"
 
 /* --------------------------------------------------------------------
  *  USB Host
@@ -195,6 +195,152 @@ void __init at91_add_device_eth(struct at91_eth_data *data)
 void __init at91_add_device_eth(struct at91_eth_data *data) {}
 #endif
 
+/* --------------------------------------------------------------------
+ *  Compact Flash / PCMCIA
+ * -------------------------------------------------------------------- */
+
+#if defined(CONFIG_AT91_CF) || defined(CONFIG_AT91_CF_MODULE)
+static struct at91_cf_data cf0_data;
+
+static struct resource cf0_resources[] = {
+	[0] = {
+		.start	= AT91_CHIPSELECT_4,
+		.end	= AT91_CHIPSELECT_4 + SZ_256M - 1,
+		.flags	= IORESOURCE_MEM | IORESOURCE_MEM_8AND16BIT,
+	}
+};
+
+static struct platform_device at91sam9260_cf0_device = {
+	.name		= "at91_cf",
+	.id		= 0,
+	.dev		= {
+				.platform_data	= &cf0_data,
+	},
+	.resource	= cf0_resources,
+	.num_resources	= ARRAY_SIZE(cf0_resources),
+};
+
+static struct at91_cf_data cf1_data;
+
+static struct resource cf1_resources[] = {
+	[0] = {
+		.start	= AT91_CHIPSELECT_5,
+		.end	= AT91_CHIPSELECT_5 + SZ_256M - 1,
+		.flags	= IORESOURCE_MEM | IORESOURCE_MEM_8AND16BIT,
+	}
+};
+
+static struct platform_device at91sam9260_cf1_device = {
+	.name		= "at91_cf",
+	.id		= 1,
+	.dev		= {
+				.platform_data	= &cf1_data,
+	},
+	.resource	= cf1_resources,
+	.num_resources	= ARRAY_SIZE(cf1_resources),
+};
+
+/*
+ * CompactFlash timings are based on Common Memory Read/Write Timing
+ * Specification of "CF+ and CompactFlash Specification Revision 2.0",
+ * the implementation includes TDF optimization of SMC.
+ */
+static struct sam9_smc_config __initdata at91sam9260_cf_timing = {
+	.ncs_read_setup		= 3,
+	.nrd_setup		= 3,
+	.ncs_write_setup	= 3,
+	.nwe_setup		= 3,
+
+	.ncs_read_pulse		= 15,
+	.nrd_pulse		= 13,
+	.ncs_write_pulse	= 17,
+	.nwe_pulse		= 15,
+
+	.read_cycle		= 18,
+	.write_cycle		= 21,
+
+	.mode			= AT91_SMC_READMODE | AT91_SMC_WRITEMODE | AT91_SMC_EXNWMODE_READY | AT91_SMC_BAT_SELECT | AT91_SMC_DBW_16 | AT91_SMC_TDFMODE,
+	.tdf_cycles		= 10,
+};
+
+static struct sam9_smc_config __initdata at91sam9g20_cf_timing = {
+	.ncs_read_setup		= 4,
+	.nrd_setup		= 4,
+	.ncs_write_setup	= 4,
+	.nwe_setup		= 4,
+
+	.ncs_read_pulse		= 19,
+	.nrd_pulse		= 17,
+	.ncs_write_pulse	= 21,
+	.nwe_pulse		= 19,
+
+	.read_cycle		= 23,
+	.write_cycle		= 26,
+
+	.mode			= AT91_SMC_READMODE | AT91_SMC_WRITEMODE | AT91_SMC_EXNWMODE_READY | AT91_SMC_BAT_SELECT | AT91_SMC_DBW_16 | AT91_SMC_TDFMODE,
+	.tdf_cycles		= 13,
+};
+
+void __init at91_add_device_cf(struct at91_cf_data *data)
+{
+	unsigned int csa;
+	int cs;
+
+	if (!data)
+		return;
+
+	cs = data->chipselect;
+
+	if (cs != 4 && cs != 5) {
+		printk(KERN_INFO "AT91: CF chip-select requested (%i).\n", cs);
+		return;
+	}
+
+	csa = at91_sys_read(AT91_MATRIX_EBICSA);
+	csa |= (cs == 4) ? AT91_MATRIX_CS4A_SMC_CF1 : AT91_MATRIX_CS5A_SMC_CF2;
+	at91_sys_write(AT91_MATRIX_EBICSA, csa);
+
+	/* configure static memory controller */
+	if (cpu_is_at91sam9g20())
+		sam9_smc_configure(cs, &at91sam9g20_cf_timing);
+	else
+		sam9_smc_configure(cs, &at91sam9260_cf_timing);
+
+	/* input/irq */
+	if (data->irq_pin) {
+		at91_set_gpio_input(data->irq_pin, 1);
+		at91_set_deglitch(data->irq_pin, 1);
+	}
+	at91_set_gpio_input(data->det_pin, 1);
+	at91_set_deglitch(data->det_pin, 1);
+
+	/* outputs, initially off */
+	if (data->vcc_pin)
+		at91_set_gpio_output(data->vcc_pin, 0);
+	at91_set_gpio_output(data->rst_pin, 0);
+
+	/* force poweron defaults for this pin ... */
+	at91_set_A_periph(AT91_PIN_PC10, 0);	/* A25/CFRNW */
+
+	at91_set_A_periph(AT91_PIN_PC15, 1);	/* nWAIT */
+	at91_set_B_periph(AT91_PIN_PC6, 0);	/* CFCE1 */
+	at91_set_B_periph(AT91_PIN_PC7, 0);	/* CFCE2 */
+
+	if (cs == 4) {
+		at91_set_A_periph(AT91_PIN_PC8, 0);	/* NCS4/CFCS0 */
+
+		cf0_data = *data;
+		platform_device_register(&at91sam9260_cf0_device);
+	} else {
+		at91_set_A_periph(AT91_PIN_PC9, 0);	/* NCS5/CFCS1 */
+
+		cf1_data = *data;
+		platform_device_register(&at91sam9260_cf1_device);
+	}
+}
+#else
+void __init at91_add_device_cf(struct at91_cf_data *data) {}
+#endif
 
 /* --------------------------------------------------------------------
  *  MMC / SD

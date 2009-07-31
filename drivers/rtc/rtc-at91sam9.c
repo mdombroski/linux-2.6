@@ -150,6 +150,9 @@ static int at91_rtc_settime(struct device *dev, struct rtc_time *tm)
 	return 0;
 }
 
+/*
+ * Read alarm time and date in RTC
+ */
 static int at91_rtc_readalarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	struct sam9_rtc *rtc = dev_get_drvdata(dev);
@@ -176,6 +179,9 @@ static int at91_rtc_readalarm(struct device *dev, struct rtc_wkalrm *alrm)
 	return 0;
 }
 
+/*
+ * Set alarm time and date in RTC
+ */
 static int at91_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	struct sam9_rtc *rtc = dev_get_drvdata(dev);
@@ -321,10 +327,6 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 	if (!rtc)
 		return -ENOMEM;
 
-	/* platform setup code should have handled this; sigh */
-	if (!device_can_wakeup(&pdev->dev))
-		device_init_wakeup(&pdev->dev, 1);
-
 	platform_set_drvdata(pdev, rtc);
 	rtc->rtt = (void __force __iomem *) (AT91_VA_BASE_SYS - AT91_BASE_SYS);
 	rtc->rtt += r->start;
@@ -358,6 +360,8 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
+	device_init_wakeup(&pdev->dev, 1);
+
 	/* NOTE:  sam9260 rev A silicon has a ROM bug which resets the
 	 * RTT on at least some reboots.  If you have that chip, you must
 	 * initialize the time from some external source like a GPS, wall
@@ -388,6 +392,7 @@ static int __exit at91_rtc_remove(struct platform_device *pdev)
 	rtt_writel(rtc, MR, mr & ~(AT91_RTT_ALMIEN | AT91_RTT_RTTINCIEN));
 	free_irq(AT91_ID_SYS, rtc);
 
+	device_init_wakeup(&pdev->dev, 0);
 	rtc_device_unregister(rtc->rtcdev);
 
 	platform_set_drvdata(pdev, NULL);

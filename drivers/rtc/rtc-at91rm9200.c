@@ -297,12 +297,6 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* cpu init code should really have flagged this device as
-	 * being wake-capable; if it didn't, do that here.
-	 */
-	if (!device_can_wakeup(&pdev->dev))
-		device_init_wakeup(&pdev->dev, 1);
-
 	rtc = rtc_device_register(pdev->name, &pdev->dev,
 				&at91_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc)) {
@@ -310,6 +304,7 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 		return PTR_ERR(rtc);
 	}
 	platform_set_drvdata(pdev, rtc);
+	device_init_wakeup(&pdev->dev, 1);
 
 	printk(KERN_INFO "AT91 Real Time Clock driver.\n");
 	return 0;
@@ -321,6 +316,8 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 static int __exit at91_rtc_remove(struct platform_device *pdev)
 {
 	struct rtc_device *rtc = platform_get_drvdata(pdev);
+
+	device_init_wakeup(&pdev->dev, 0);
 
 	/* Disable all interrupts */
 	at91_sys_write(AT91_RTC_IDR, AT91_RTC_ACKUPD | AT91_RTC_ALARM |

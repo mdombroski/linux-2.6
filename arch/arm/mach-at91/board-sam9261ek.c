@@ -325,7 +325,7 @@ static struct spi_board_info ek_spi_devices[] = {
 	{
 		.modalias	= "ads7846",
 		.chip_select	= 2,
-		.max_speed_hz	= 125000 * 26,	/* (max sample rate @ 3V) * (cmd + data + overhead) */
+		.max_speed_hz	= 125000 * 16,	/* max sample rate * clocks per sample */
 		.bus_num	= 0,
 		.platform_data	= &ads_info,
 		.irq		= AT91SAM9261_ID_IRQ0,
@@ -362,31 +362,31 @@ static struct spi_board_info ek_spi_devices[] = {
 
 /* STN */
 static struct fb_videomode at91_stn_modes[] = {
-        {
-		.name           = "SP06Q002 @ 75",
-		.refresh        = 75,
-		.xres           = 320,          .yres           = 240,
-		.pixclock       = KHZ2PICOS(1440),
+	{
+		.name		= "SP06Q002 @ 75",
+		.refresh	= 75,
+		.xres		= 320,		.yres		= 240,
+		.pixclock	= KHZ2PICOS(1440),
 
-		.left_margin    = 1,            .right_margin   = 1,
-		.upper_margin   = 0,            .lower_margin   = 0,
-		.hsync_len      = 1,            .vsync_len      = 1,
+		.left_margin	= 1,		.right_margin	= 1,
+		.upper_margin	= 0,		.lower_margin	= 0,
+		.hsync_len	= 1,		.vsync_len	= 1,
 
 		.sync		= FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-		.vmode          = FB_VMODE_NONINTERLACED,
-        },
+		.vmode		= FB_VMODE_NONINTERLACED,
+	}
 };
 
 static struct fb_monspecs at91fb_default_stn_monspecs = {
-        .manufacturer   = "HIT",
-        .monitor        = "SP06Q002",
+	.manufacturer	= "HIT",
+	.monitor		= "SP06Q002",
 
-        .modedb         = at91_stn_modes,
-        .modedb_len     = ARRAY_SIZE(at91_stn_modes),
-        .hfmin          = 15000,
-        .hfmax          = 64000,
-        .vfmin          = 50,
-        .vfmax          = 150,
+	.modedb			= at91_stn_modes,
+	.modedb_len		= ARRAY_SIZE(at91_stn_modes),
+	.hfmin			= 15000,
+	.hfmax			= 64000,
+	.vfmin			= 50,
+	.vfmax			= 150,
 };
 
 #define AT91SAM9261_DEFAULT_STN_LCDCON2	(ATMEL_LCDC_MEMOR_LITTLE \
@@ -421,7 +421,7 @@ static struct atmel_lcdfb_info __initdata ek_lcdc_data = {
 /* TFT */
 static struct fb_videomode at91_tft_vga_modes[] = {
 	{
-	        .name           = "TX09D50VM1CCA @ 60",
+		.name		= "TX09D50VM1CCA @ 60",
 		.refresh	= 60,
 		.xres		= 240,		.yres		= 320,
 		.pixclock	= KHZ2PICOS(4965),
@@ -432,12 +432,12 @@ static struct fb_videomode at91_tft_vga_modes[] = {
 
 		.sync		= FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 		.vmode		= FB_VMODE_NONINTERLACED,
-	},
+	}
 };
 
 static struct fb_monspecs at91fb_default_tft_monspecs = {
 	.manufacturer	= "HIT",
-	.monitor        = "TX09D50VM1CCA",
+	.monitor	= "TX09D50VM1CCA",
 
 	.modedb		= at91_tft_vga_modes,
 	.modedb_len	= ARRAY_SIZE(at91_tft_vga_modes),
@@ -448,7 +448,7 @@ static struct fb_monspecs at91fb_default_tft_monspecs = {
 };
 
 #define AT91SAM9261_DEFAULT_TFT_LCDCON2	(ATMEL_LCDC_MEMOR_LITTLE \
-					| ATMEL_LCDC_DISTYPE_TFT    \
+					| ATMEL_LCDC_DISTYPE_TFT \
 					| ATMEL_LCDC_CLKMOD_ALWAYSACTIVE)
 
 static void at91_lcdc_tft_power_control(int on)
@@ -598,6 +598,9 @@ static void __init ek_board_init(void)
 	ek_add_device_buttons();
 	/* LEDs */
 	at91_gpio_leds(ek_leds, ARRAY_SIZE(ek_leds));
+	/* shutdown controller, wakeup button (5 msec low) */
+	at91_sys_write(AT91_SHDW_MR, AT91_SHDW_CPTWK0_(10) | AT91_SHDW_WKMODE0_LOW
+				| AT91_SHDW_RTTWKEN);
 }
 
 MACHINE_START(AT91SAM9261EK, "Atmel AT91SAM9261-EK")
