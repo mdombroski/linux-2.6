@@ -496,7 +496,7 @@ static struct gpio_keys_button aixle_buttons[] = {
 		.debounce_interval	= 40,
 	},
 	{	/* PWR Button */
-		.code		= KEY_F13,
+		.code		= KEY_POWER,
 		.gpio		= AT91_PIN_PB31,
 		.active_low	= 1,
 		.desc		= "Power Button",
@@ -504,21 +504,21 @@ static struct gpio_keys_button aixle_buttons[] = {
 		.debounce_interval	= 40,
 	},
 	{	/* VOL+ Button */
-		.code		= KEY_F14,
+		.code		= KEY_VOLUMEUP,
 		.gpio		= AT91_PIN_PB26,
 		.active_low	= 1,
 		.desc		= "Volume+ Button",
 		.debounce_interval	= 40,
 	},
 	{	/* VOL- Button */
-		.code		= KEY_F15,
+		.code		= KEY_VOLUMEDOWN,
 		.gpio		= AT91_PIN_PB27,
 		.active_low	= 1,
 		.desc		= "Volume- Button",
 		.debounce_interval	= 40,
 	},
 	{	/* MENU Button */
-		.code		= KEY_F16,
+		.code		= KEY_MENU,
 		.gpio		= AT91_PIN_PB25,
 		.active_low	= 1,
 		.desc		= "Menu Button",
