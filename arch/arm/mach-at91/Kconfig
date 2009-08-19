@@ -286,6 +286,14 @@ config MACH_USB_A9263
 	  Select this if you are using a Calao Systems USB-A9263.
 	  <http://www.calao-systems.com>
 
+config MACH_AIXLE
+	bool "4D Electronics AIXLE"
+	depends on ARCH_AT91SAM9263
+	help
+	  Select this if you are using a 4D Electronics AIXLE single board
+	  computer or module.
+	  <http://www.4d-electronics.co.nz>
+
 config MACH_CSB737
 	bool "Cogent CSB737 System-on-Module"
 	depends on ARCH_AT91SAM9263
