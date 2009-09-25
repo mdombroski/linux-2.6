@@ -31,10 +31,6 @@
 /* structure used to get information to the file operation functions */
 /* and to keep some state information. */
 struct nrf24l01 {
-	/* configuration of the radio */
-	struct nrf_pipe pipes[6];
-	struct nrf_radio_config radio;
-
 	struct spi_device *spi;
 
 	/* platform data from board configuration */
@@ -275,240 +271,6 @@ static int nrf_mode_rx(struct nrf24l01 *nrf)
 	return status;
 }
 
-/* Configure a data pipe */
-static int nrf_configure_pipe(struct nrf24l01 *nrf, struct nrf_pipe *pipe)
-{
-	int status = 0;
-	char buf, width;
-
-	if ((pipe->len > 32) | (pipe->num > 5))
-		return -EINVAL;
-
-	/* get address width configuration. */
-	if (pipe->num < 2)
-		/* pipes 0, 1 have max 5 bytes address */
-		width = nrf->radio.awidth;
-	else
-		/* pipes 2 - 5 have 1 byte MSB */
-		width = 1;
-
-	/* configure pipe address */
-	status |=
-	    nrf_write_register(nrf->spi, REG_RX_ADDR_P0 + pipe->num, pipe->addr,
-			       width);
-
-	/* enable/disable pipe */
-	status |= nrf_read_register(nrf->spi, REG_EN_RXADDR, &buf, 1);
-	if (pipe->enable)
-		buf |= (1 << pipe->num);
-	else
-		buf &= ~(1 << pipe->num);
-	status |= nrf_write_register(nrf->spi, REG_EN_RXADDR, &buf, 1);
-
-	/* enable/disable ack */
-	status |= nrf_read_register(nrf->spi, REG_EN_AA, &buf, 1);
-	if (pipe->ack)
-		buf |= (1 << pipe->num);
-	else
-		buf &= ~(1 << pipe->num);
-	status |= nrf_write_register(nrf->spi, REG_EN_AA, &buf, 1);
-
-	/* enable/disable dynamic payload */
-	status |= nrf_read_register(nrf->spi, REG_DYNPD, &buf, 1);
-	if (pipe->dynpd)
-		buf |= (1 << pipe->num);
-	else
-		buf &= ~(1 << pipe->num);
-	status |= nrf_write_register(nrf->spi, REG_DYNPD, &buf, 1);
-
-	buf = pipe->len;
-	status |=
-	    nrf_write_register(nrf->spi, REG_RX_PW_P0 + pipe->num, &buf, 1);
-
-	return (status < 0) ? -EIO : 0;
-}
-
-/* Get the configuration of a data pipe. Configuration is stored in nrf struct */
-static int nrf_configure_pipe_get(struct nrf24l01 *nrf, int num)
-{
-	char buf;
-	int status = 0, width;
-	struct nrf_pipe *pipe = &nrf->pipes[num];
-	
-	if (num > 5)
-		return -EINVAL;
-
-	pipe->num = num;
-
-	/* get address width configuration. */
-	if (pipe->num < 2)
-		/* pipes 0, 1 have max 5 bytes address */
-		width = nrf->radio.awidth;
-	else
-		/* pipes 2 - 5 have 1 byte MSB */
-		width = 1;
-
-	/* configure pipe address */
-	status |=
-	    nrf_read_register(nrf->spi, REG_RX_ADDR_P0 + num, pipe->addr,
-			      width);
-
-	/* enable/disable pipe */
-	status |= nrf_read_register(nrf->spi, REG_EN_RXADDR, &buf, 1);
-	pipe->enable = (buf & (1 << pipe->num)) ? 1 : 0;
-
-	/* enable/disable ack */
-	status |= nrf_read_register(nrf->spi, REG_EN_AA, &buf, 1);
-	pipe->ack = (buf & (1 << pipe->num)) ? 1 : 0;
-
-	/* enable/disable dynamic payload */
-	status |= nrf_read_register(nrf->spi, REG_DYNPD, &buf, 1);
-	pipe->dynpd = (buf & (1 << pipe->num)) ? 1 : 0;
-
-	status |= nrf_read_register(nrf->spi, REG_RX_PW_P0 + num, &buf, 1);
-	pipe->len = buf;
-
-	return 0;
-}
-
-/* Set the radio configuration parameters */
-static int nrf_configure_radio(struct nrf24l01 *nrf,
-			       struct nrf_radio_config *radio)
-{
-	int status = 0;
-	char buf;
-
-	/* invalid parameters */
-	if ((radio->crc < 0x00) || (radio->crc > 0x02))
-		return -EINVAL;
-
-	if ((radio->awidth < 0x03) || (radio->awidth > 0x05))
-		return -EINVAL;
-
-	if ((radio->delay < 0x00) || (radio->delay > 0x0F))
-		return -EINVAL;
-
-	if ((radio->retries < 0x00) || (radio->retries > 0x0F))
-		return -EINVAL;
-
-	if ((radio->channel < 0x00) || (radio->channel > 0x7F))
-		return -EINVAL;
-
-	if ((radio->rate < 0x00) || (radio->rate > 0x02))
-		return -EINVAL;
-
-	if ((radio->power < 0x00) || (radio->power > 0x03))
-		return -EINVAL;
-
-	/* configure CRC */
-	status |= nrf_read_register(nrf->spi, REG_CONFIG, &buf, 1);
-	switch (radio->crc) {
-	case 2:
-		buf |= BIT_CONFIG_CRCO | BIT_CONFIG_EN_CRC;
-		break;
-	case 1:
-		buf |= BIT_CONFIG_EN_CRC;
-		buf &= ~BIT_CONFIG_CRCO;
-		break;
-	case 0:
-		buf &= ~(BIT_CONFIG_CRCO | BIT_CONFIG_EN_CRC);
-		break;
-	}
-	status |= nrf_write_register(nrf->spi, REG_CONFIG, &buf, 1);
-
-	/* configure address width */
-	buf = radio->awidth - 2;
-	status |= nrf_write_register(nrf->spi, REG_SETUP_AW, &buf, 1);
-
-	/* configure delay and retries */
-	buf = (radio->delay << 4) | radio->retries;
-	status |= nrf_write_register(nrf->spi, REG_SETUP_RETR, &buf, 1);
-
-	/* configure radio channel */
-	buf = radio->channel;
-	status |= nrf_write_register(nrf->spi, REG_RF_CH, &buf, 1);
-
-	/* configure data rate and power */
-	status |= nrf_read_register(nrf->spi, REG_RF_SETUP, &buf, 1);
-	switch (radio->rate) {
-	case 2:
-		buf &= ~BIT_RFSETUP_RF_DR_LOW;
-		buf |= BIT_RFSETUP_RF_DR_HIGH;
-		break;
-	case 1:
-		buf &= ~(BIT_RFSETUP_RF_DR_LOW | BIT_RFSETUP_RF_DR_HIGH);
-		break;
-	case 0:
-		buf |= BIT_RFSETUP_RF_DR_LOW;
-		buf &= ~BIT_RFSETUP_RF_DR_HIGH;
-		break;
-	}
-	buf |= (radio->power << 1);
-	status |= nrf_write_register(nrf->spi, REG_RF_SETUP, &buf, 1);
-
-	/* set tx address */
-	status |=
-	    nrf_write_register(nrf->spi, REG_TX_ADDR, radio->txaddr,
-			       radio->awidth);
-
-	return (status < 0) ? -EIO : 0;
-}
-
-/* Get the radio configuration parameters. Configuration is stored in nrf struct */
-static int nrf_configure_radio_get(struct nrf24l01 *nrf)
-{
-	struct nrf_radio_config *radio = &nrf->radio;
-	int status = 0;
-	char buf;
-
-	/* get CRC configuration */
-	status |= nrf_read_register(nrf->spi, REG_CONFIG, &buf, 1);
-	switch (buf & (BIT_CONFIG_CRCO | BIT_CONFIG_EN_CRC)) {
-	case BIT_CONFIG_CRCO | BIT_CONFIG_EN_CRC:
-		radio->crc = 2;
-		break;
-	case BIT_CONFIG_EN_CRC:
-		radio->crc = 1;
-		break;
-	case 0:
-		radio->crc = 0;
-		break;
-	}
-
-	/* get address width */
-	status |= nrf_read_register(nrf->spi, REG_SETUP_AW, &buf, 1);
-	radio->awidth = buf + 2;
-
-	/* get delay and retries */
-	status |= nrf_read_register(nrf->spi, REG_SETUP_RETR, &buf, 1);
-	radio->delay = buf >> 4;
-	radio->retries = buf & 0x0F;
-
-	/* configure radio channel */
-	status |= nrf_read_register(nrf->spi, REG_RF_CH, &buf, 1);
-	radio->channel = buf;
-
-	/* configure data rate and power */
-	status |= nrf_read_register(nrf->spi, REG_RF_SETUP, &buf, 1);
-	switch (buf & (BIT_RFSETUP_RF_DR_LOW | BIT_RFSETUP_RF_DR_HIGH)) {
-	case BIT_RFSETUP_RF_DR_HIGH:
-		radio->rate = 2;
-		break;
-	case 0:
-		radio->rate = 1;
-		break;
-	case BIT_RFSETUP_RF_DR_LOW:
-		radio->rate = 0;
-		break;
-	}
-	radio->power = (buf >> 1) & 0x03;
-
-	/* get tx address */
-	status |= nrf_read_register(nrf->spi, REG_TX_ADDR, radio->txaddr,
-				    radio->awidth);
-
-	return (status < 0) ? -EIO : 0;
-}
 
 /* Service interrupt */
 static int nrf_service_irq(struct nrf24l01 *nrf)
@@ -572,148 +334,6 @@ static irqreturn_t nrf_irq(int irq, void *handle)
 	spin_unlock_irqrestore(&nrf->lock, flags);
 
 	return IRQ_HANDLED;
-}
-
-
-static int nrf_tx_packet(struct nrf24l01 *nrf, const struct nrf_packet *packet)
-{
-	char state = 0;
-	int err = 0;
-
-	/* save current state */
-	nrf_read_register(nrf->spi, REG_CONFIG, &state, 1);
-	nrf_mode_standby(nrf);
-
-	/* set tx address */
-	nrf_write_register(nrf->spi, REG_TX_ADDR, packet->addr,
-			   nrf->radio.awidth);
-
-	/* copy buffer into FIFO */
-	switch (packet->ack) {
-	case NRF_PLD_NO_ACK:
-		nrf_write_payload_noack(nrf->spi, packet->buf, packet->len);
-		break;
-
-	default:
-	case NRF_PLD_NORMAL:
-		nrf_write_payload(nrf->spi, packet->buf, packet->len);
-		break;
-	}
-
-	/* tx packet */
-	nrf_mode_tx(nrf);
-
-	/* wait for interrupt */
-	nrf_service_irq(nrf);
-
-	/* wait for packet transmission to end - may be success or fail */
-	if (mutex_lock_interruptible(&nrf->tx)) {
-		/* flush tx fifo if interrupted before transmission complete */
-		nrf_flush_tx(nrf);
-		
-		/* restore state */
-		nrf_write_register(nrf->spi, REG_CONFIG, &state, 1);
-		return -EINTR;
-	}
-
-	switch (nrf->tx_status) {
-	case TX_SUCCESS:
-		break;
-
-	case TX_MAX_RT:
-		nrf_flush_tx(nrf);
-		dev_dbg(&nrf->spi->dev, "MAX_RT\n");
-		err = -EAGAIN;
-		break;
-	case TX_FULL:
-		nrf_flush_tx(nrf);
-		dev_dbg(&nrf->spi->dev, "TX FIFO full\n");
-		err = -EAGAIN;
-		break;
-	default:
-		err = -EAGAIN;
-		break;
-	}
-
-	/* restore state */
-	nrf_write_register(nrf->spi, REG_CONFIG, &state, 1);
-	
-	return err;
-}
-
-static int nrf_rx_packet(struct nrf24l01 *nrf, struct nrf_packet *packet)
-{
-	char fifo;
-	int pipe, status, width;
-
-	dev_dbg(&nrf->spi->dev, "%s\n", __FUNCTION__);
-
-	/* enter receive mode and wait for packet */
-	nrf_mode_rx(nrf);
-	while (1) {
-		if (mutex_trylock(&nrf->rx))
-			break;
-
-		/* nrf_service_irq is interruptible so this infinite loop is acceptable */
-		if (nrf_service_irq(nrf) < 0)
-			return -EINTR;
-	}
-	
-	status = nrf_read_register(nrf->spi, REG_FIFO_STATUS, &fifo, 1);
-	if (status < 0)
-		return -EIO;
-
-	/* if RX FIFO is empty then error */
-	if (fifo & BIT_FIFO_RX_EMPTY)
-		return -EAGAIN;
-
-	width = nrf_read_payload_width(nrf->spi);
-
-	/* On invalid packet length flush rx */
-	if ((width < 0) || (width > 32))
-	{
-		nrf_flush_rx(nrf);
-		return -EIO;
-	}
-
-	packet->len = width;
-
-	/* read out packet contents */
-	if (nrf_read_payload(nrf->spi, packet->buf, width) < 0)
-		return -EIO;
-
-	/* get address of packet */
-	pipe = (status & 0x0E) >> 1;
-	if (pipe < 2) {
-		nrf_read_register(nrf->spi, REG_RX_ADDR_P0 + pipe, packet->addr,
-				  5);
-	} else {
-		nrf_read_register(nrf->spi, REG_RX_ADDR_P1, packet->addr, 5);
-		nrf_read_register(nrf->spi, REG_RX_ADDR_P0 + pipe,
-				  packet->addr, 1);
-	}
-
-	/* if there are still packets to receive unlock the mutex */
-	nrf_read_register(nrf->spi, REG_FIFO_STATUS, &fifo, 1);
-	if (!(fifo & BIT_FIFO_RX_EMPTY))
-		mutex_unlock(&nrf->rx);
-	
-	return 0;
-}
-
-static int nrf_ack_packet(struct nrf24l01 *nrf, struct nrf_ack *packet)
-{
-	int status;
-	
-	if ((packet->pipe < 0) || (packet->pipe > 5))
-		return -EINVAL;
-
-	status = nrf_write_ack_payload(nrf->spi, packet->pipe, packet->buf, packet->len);
-	
-/*	if (status) */
-		return 0;
-/*	else
-		return -EIO; */
 }
 
 
@@ -894,13 +514,13 @@ static int nrf_file_ioctl(struct inode *ip, struct file *fp, unsigned int cmd,
 			  unsigned long arg)
 {
 	struct nrf24l01 *nrf = fp->private_data;
-	struct nrf_pipe *pipe;
-	struct nrf_radio_config *radio, *radio_user;
-	struct nrf_packet *packet, *packet_user;
-	struct nrf_ack *ack, *ack_user;
-	struct nrf_reg *reg_user;
+
+	struct nrf_payload *payload_user = (struct nrf_payload *) arg;
+	struct nrf_reg *reg_user = (struct nrf_reg *) arg;
+
 	char* buf;
-	unsigned long tmp;
+	int tmp;
+
 	int err = 0;
 
 	if (_IOC_TYPE(cmd) != NRF_IOC_MAGIC) {
@@ -920,144 +540,120 @@ static int nrf_file_ioctl(struct inode *ip, struct file *fp, unsigned int cmd,
 		nrf_flush_rx(nrf);
 		break;
 
-	case NRF_IOC_FLUSH_RX:
-		nrf_flush_rx(nrf);
-		break;
-
-	case NRF_IOC_FLUSH_TX:
-		nrf_flush_tx(nrf);
-		break;
-
-	case NRF_IOC_TX_PACKET:
-		packet_user = (struct nrf_packet *)arg;
-
-		packet = kzalloc(sizeof(struct nrf_packet), GFP_KERNEL);
-		if (packet == NULL)
+	case NRF_IOC_R_REG:
+		buf = kzalloc(sizeof(char)*reg_user->len, GFP_KERNEL);
+		if (buf == NULL)
 			return -EFAULT;
-
-		if (copy_from_user
-		    (packet, packet_user, sizeof(struct nrf_packet))) {
-			kfree(packet);
+		
+		err = nrf_read_register(nrf->spi, reg_user->reg, buf, reg_user->len);
+		
+		if (copy_to_user(reg_user->data, buf, reg_user->len)) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		
+		kfree(buf);
+		break;
+		
+	case NRF_IOC_W_REG:
+		buf = kzalloc(sizeof(char)*reg_user->len, GFP_KERNEL);
+		if (buf == NULL)
+			return -EFAULT;
+		
+		if (copy_from_user(buf, reg_user->data, reg_user->len)) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		
+		err = nrf_write_register(nrf->spi, reg_user->reg, buf, reg_user->len);
+		
+		kfree(buf);
+		break;
+		
+	case NRF_IOC_RX_PAYLOAD:
+		/* allocate maximum size buffer */
+		buf = kzalloc(sizeof(char) * MAX_TX_BYTES, GFP_KERNEL);
+		if (buf == NULL) {
 			return -EFAULT;
 		}
 
-		packet->buf =
-		    kzalloc(sizeof(char) * packet_user->len, GFP_KERNEL);
-		if (packet->buf == NULL)
-			return -EFAULT;
-		if (copy_from_user
-		    (packet->buf, packet_user->buf, packet_user->len)) {
-			kfree(packet->buf);
-			kfree(packet);
-			return -EFAULT;
-		}
-
-		err = nrf_tx_packet(nrf, packet);
-
-		kfree(packet->buf);
-		kfree(packet);
-		break;
-
-	case NRF_IOC_RX_PACKET:
-		packet_user = (struct nrf_packet *)arg;
-
-		packet = kzalloc(sizeof(struct nrf_packet), GFP_KERNEL);
-		if (packet == NULL)
-			return -EFAULT;
-
-		/* allocate full 32 byte buffer */
-		packet->buf = kzalloc(sizeof(char) * 32, GFP_KERNEL);
-		if (packet->buf == NULL) {
-			kfree(packet);
-			return -EFAULT;
-		}
-
-		err = nrf_rx_packet(nrf, packet);
+		err = nrf_read_payload(nrf->spi, buf, payload_user->len);
 		if( err ) {
-			kfree(packet->buf);
-			kfree(packet);
+			kfree(buf);
 			return err;
 		}
 
-		/* copy the packet contents - address, size */
-		/* unfortunately this kills the buf pointer, so back it up */
-		tmp = (unsigned long)packet_user->buf;
-		if (copy_to_user
-		    (packet_user, packet, sizeof(struct nrf_packet))) {
-			kfree(packet->buf);
-			kfree(packet);
-			return -EFAULT;
-		}
-		/* restore the buf pointer */
-		packet_user->buf = (char *)tmp;
-		
-		/* copy the packet buffer */
-		err = copy_to_user(packet_user->buf, packet->buf, packet->len);
+		/* copy the payload to the user buffer */
+		err = copy_to_user(payload_user->data, buf, payload_user->len);
 		if (err) {
-			kfree(packet->buf);
-			kfree(packet);
+			kfree(buf);
+			return -EFAULT;
+		}
+		
+		kfree(buf);
+		break;
+		
+	case NRF_IOC_TX_PAYLOAD:
+		buf = kzalloc(sizeof(char) * payload_user->len, GFP_KERNEL);
+		if (buf == NULL)
+			return -EFAULT;
+		
+		if (copy_from_user(buf, payload_user->data, payload_user->len)) {
+			kfree(buf);
 			return -EFAULT;
 		}
 
-		kfree(packet->buf);
-		kfree(packet);
+		err = nrf_write_payload(nrf->spi, buf, payload_user->len);
+
+		kfree(buf);
+		break;
+		
+	case NRF_IOC_ACK_PAYLOAD:
+		buf = kzalloc(sizeof(char) * payload_user->len, GFP_KERNEL);
+		if (buf == NULL)
+			return -EFAULT;
+		
+		if (copy_from_user(buf, payload_user->data, payload_user->len)) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		
+		err = nrf_write_ack_payload(nrf->spi, payload_user->pipe, buf, payload_user->len);
+		
+		kfree(buf);
+		break;
+		
+	case NRF_IOC_NOACK_PAYLOAD:
+		buf = kzalloc(sizeof(char) * payload_user->len, GFP_KERNEL);
+		if (buf == NULL)
+			return -EFAULT;
+		
+		if (copy_from_user(buf, payload_user->data, payload_user->len)) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		
+		err = nrf_write_payload_noack(nrf->spi, buf, payload_user->len);
+		
+		kfree(buf);
+		break;
+		
+	case NRF_IOC_R_RX_LENGTH:
+		tmp = nrf_read_payload_width(nrf->spi);
+		copy_to_user(arg, &tmp, sizeof(tmp));
+		break;
+		
+	case NRF_IOC_REUSE_PAYLOAD:
+		dev_err(&nrf->spi->dev, "This ioctl isnt implemented yet\n");
+		return -EINVAL;
 		break;
 
-	case NRF_IOC_ACK_PACKET:
-		ack_user = (struct nrf_ack *)arg;
-
-		ack = kzalloc(sizeof(struct nrf_ack), GFP_KERNEL);
-		if (ack == NULL)
-			return -EFAULT;
-
-		if (copy_from_user(ack, ack_user, sizeof(struct nrf_ack))) {
-			kfree(ack);
-			return -EFAULT;
-		}
-
-		ack->buf = kzalloc(sizeof(char) * ack_user->len, GFP_KERNEL);
-		if (ack->buf == NULL)
-			return -EFAULT;
-
-		if (copy_from_user(ack->buf, ack_user->buf, ack_user->len)) {
-			kfree(ack->buf);
-			kfree(ack);
-			return -EFAULT;
-		}
-
-		err = nrf_ack_packet(nrf, ack);
-
-		kfree(ack->buf);
-		kfree(ack);
+	case NRF_IOC_FLUSH_RX:
+		nrf_flush_rx(nrf);
 		break;
-
-	case NRF_IOC_CONFIG_PIPE:
-		pipe = (struct nrf_pipe *)arg;
-		if (copy_from_user
-		    (&nrf->pipes[pipe->num], pipe, sizeof(struct nrf_pipe)))
-			return -EFAULT;
-		err = nrf_configure_pipe(nrf, &nrf->pipes[pipe->num]);
-		break;
-
-	case NRF_IOC_CONFIG_RADIO:
-		radio = kzalloc(sizeof(struct nrf_radio_config), GFP_KERNEL);
-		if (radio == NULL)
-			return -EFAULT;
-
-		radio_user = (struct nrf_radio_config *)arg;
-
-		if (copy_from_user
-		    (radio, radio_user, sizeof(struct nrf_radio_config))) {
-			kfree(radio);
-			return -EFAULT;
-		}
-
-		err = nrf_configure_radio(nrf, radio);
-		if (err == 0)
-			memcpy(&nrf->radio, radio,
-				sizeof(struct nrf_radio_config));
-
-		kfree(radio);
+		
+	case NRF_IOC_FLUSH_TX:
+		nrf_flush_tx(nrf);
 		break;
 
 	case NRF_IOC_MODE_PWR_DOWN:
@@ -1075,39 +671,10 @@ static int nrf_file_ioctl(struct inode *ip, struct file *fp, unsigned int cmd,
 	case NRF_IOC_MODE_RX:
 		nrf_mode_rx(nrf);
 		break;
-
-	case NRF_IOC_READ_REG:
-		reg_user = (struct nrf_reg *)arg;
-
-		buf = kzalloc(sizeof(char)*reg_user->len, GFP_KERNEL);
-		if (buf == NULL)
-			return -EFAULT;
-
-		err = nrf_read_register(nrf->spi, reg_user->reg, buf, reg_user->len);
-
-		if (copy_to_user(reg_user->data, buf, reg_user->len)) {
-			kfree(buf);
-			return -EFAULT;
-		}
-
-		kfree(buf);
-		break;
-
-	case NRF_IOC_WRITE_REG:
-		reg_user = (struct nrf_reg *)arg;
-
-		buf = kzalloc(sizeof(char)*reg_user->len, GFP_KERNEL);
-		if (buf == NULL)
-			return -EFAULT;
-
-		if (copy_from_user(buf, reg_user->data, reg_user->len)) {
-			kfree(buf);
-			return -EFAULT;
-		}
-
-		err = nrf_write_register(nrf->spi, reg_user->reg, buf, reg_user->len);
-
-		kfree(buf);
+		
+	case NRF_IOC_SERVICE_IRQ:
+		tmp = nrf_service_irq(nrf);
+		copy_to_user(arg, &tmp, sizeof(tmp));
 		break;
 
 	default:
@@ -1256,15 +823,6 @@ static int __devinit nrf_probe(struct spi_device *spi)
 	}
 	dev_info(&nrf->spi->dev, "feature register enabled\n");
 
-	/* get configuration from radio */
-	nrf_configure_radio_get(nrf);
-	nrf_configure_pipe_get(nrf, 0);
-	nrf_configure_pipe_get(nrf, 1);
-	nrf_configure_pipe_get(nrf, 2);
-	nrf_configure_pipe_get(nrf, 3);
-	nrf_configure_pipe_get(nrf, 4);
-	nrf_configure_pipe_get(nrf, 5);
-
 	/* flush FIFO buffers */
 	nrf_flush_tx(nrf);
 	nrf_flush_rx(nrf);
@@ -1331,15 +889,7 @@ static int nrf_suspend(struct spi_device *spi, pm_message_t message)
 	spin_lock_irq(&nrf->lock);
 
 	disable_irq(nrf->spi->irq);
-
 	nrf_mode_power_down(nrf);
-	nrf_configure_radio_get(nrf);
-	nrf_configure_pipe_get(nrf, 0);
-	nrf_configure_pipe_get(nrf, 1);
-	nrf_configure_pipe_get(nrf, 2);
-	nrf_configure_pipe_get(nrf, 3);
-	nrf_configure_pipe_get(nrf, 4);
-	nrf_configure_pipe_get(nrf, 5);
 
 	spin_unlock_irq(&nrf->lock);
 
@@ -1353,14 +903,6 @@ static int nrf_resume(struct spi_device *spi)
 	spin_lock_irq(&nrf->lock);
 
 	dev_dbg(&spi->dev, "resume\n");
-
-	nrf_configure_radio(nrf, &nrf->radio);
-	nrf_configure_pipe(nrf, &nrf->pipes[0]);
-	nrf_configure_pipe(nrf, &nrf->pipes[1]);
-	nrf_configure_pipe(nrf, &nrf->pipes[2]);
-	nrf_configure_pipe(nrf, &nrf->pipes[3]);
-	nrf_configure_pipe(nrf, &nrf->pipes[4]);
-	nrf_configure_pipe(nrf, &nrf->pipes[5]);
 
 	/* TX state is set to standby state as it will be invalid after suspend. */
 	switch (nrf->state) {

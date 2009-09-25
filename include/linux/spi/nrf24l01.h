@@ -17,88 +17,21 @@ struct nrf24l01_platform_data {
 	void (*set_rf_enable) (int state);
 };
 
-/* packet structure */
-struct nrf_packet {
-	/* destination/source address */
-	/* addr[0] is LSB */
-	char addr[5];
-
-	/* packet data */
-	char *buf;
-
-	/* length of data */
-	int len;
-
-	/* wants an ack packet in reply */
-	int ack;
-};
-
-/* ack packet */
-struct nrf_ack {
-	/* packet data */
-	char *buf;
-	
-	/* length of data */
-	int len;
-	
-	/* destination pipe */
-	int pipe;
-};
-
-/* Data pipe configuration */
-struct nrf_pipe {
-	/* pipe number (0-5) */
-	int num;
-
-	/* receive address */
-	/* addr[0] is LSB */
-	char addr[5];
-
-	/* enable receive on this pipe */
-	int enable:1;
-
-	/* enable auto acknowledge on this pipe */
-	int ack:1;
-
-	/* enable dynamic payload length on this pipe */
-	int dynpd:1;
-
-	/* length of received packets (not for dynamic length) */
-	int len;
-};
-
-/* Radio configuration */
-struct nrf_radio_config {
-	/* bytes of CRC */
-	int crc;
-
-	/* address width */
-	int awidth;
-
-	/* Delay between retransmission (in units of 250us) */
-	int delay;
-
-	/* retries */
-	int retries;
-
-	/* Radio channel */
-	int channel;
-
-	/* data rate */
-	int rate;
-
-	/* power output */
-	int power;
-
-	/* transmit address */
-	char txaddr[5];
-};
 
 /* Register contents */
 struct nrf_reg {
 	char reg;
 	char* data;
 	int len;
+};
+
+
+/* Payload contents */
+struct nrf_payload {
+	char* data;
+	int len;
+	/* pipe field only used for ACK packets */
+	int pipe;
 };
 
 
@@ -115,37 +48,37 @@ struct nrf_reg {
 #define STATE_RX	2
 #define STATE_TX	3
 
-#define NRF_PLD_NO_ACK	0
-#define NRF_PLD_NORMAL	1
 
 /*
  * IOCTL definitions
  */
 
-#define NRF_IOC_MAGIC 'x'
+#define NRF_IOC_MAGIC		'x'
 
-#define NRF_IOC_RESET _IO(NRF_IOC_MAGIC, 1)
+#define NRF_IOC_RESET		_IO(NRF_IOC_MAGIC, 1)
 
-#define NRF_IOC_FLUSH_RX _IO(NRF_IOC_MAGIC, 2)
-#define NRF_IOC_FLUSH_TX _IO(NRF_IOC_MAGIC, 3)
+#define NRF_IOC_R_REG		_IOR(NRF_IOC_MAGIC, 2, struct nrf_reg)
+#define NRF_IOC_W_REG		_IOR(NRF_IOC_MAGIC, 3, struct nrf_reg)
 
-#define NRF_IOC_TX_PACKET _IOW(NRF_IOC_MAGIC, 4, struct nrf_packet)
-#define NRF_IOC_RX_PACKET _IOR(NRF_IOC_MAGIC, 5, struct nrf_packet)
-#define NRF_IOC_ACK_PACKET _IOW(NRF_IOC_MAGIC, 6, struct nrf_ack)
+#define NRF_IOC_RX_PAYLOAD	_IOR(NRF_IOC_MAGIC, 4, struct nrf_payload)
+#define NRF_IOC_TX_PAYLOAD	_IOW(NRF_IOC_MAGIC, 5, struct nrf_payload)
+#define NRF_IOC_ACK_PAYLOAD	_IOW(NRF_IOC_MAGIC, 6, struct nrf_payload)
+#define NRF_IOC_NOACK_PAYLOAD	_IOW(NRF_IOC_MAGIC, 7, struct nrf_payload)
 
-#define NRF_IOC_CONFIG_PIPE _IOW(NRF_IOC_MAGIC, 7, struct nrf_pipe)
-#define NRF_IOC_CONFIG_RADIO _IOW(NRF_IOC_MAGIC, 8, struct nrf_radio_config)
+#define NRF_IOC_R_RX_LENGTH	_IOR(NRF_IOC_MAGIC, 8, int)
+#define NRF_IOC_REUSE_PAYLOAD	_IO(NRF_IOC_MAGIC, 9)
 
-#define NRF_IOC_MODE_PWR_DOWN _IO(NRF_IOC_MAGIC, 9)
-#define NRF_IOC_MODE_STANDBY1 _IO(NRF_IOC_MAGIC, 10)
-#define NRF_IOC_MODE_TX _IO(NRF_IOC_MAGIC, 11)
-#define NRF_IOC_MODE_RX _IO(NRF_IOC_MAGIC, 12)
+#define NRF_IOC_FLUSH_RX	_IO(NRF_IOC_MAGIC, 10)
+#define NRF_IOC_FLUSH_TX	_IO(NRF_IOC_MAGIC, 11)
 
-/* please dont use these often - they are to be used for testing. */
-#define NRF_IOC_READ_REG _IOR(NRF_IOC_MAGIC, 13, struct nrf_reg)
-#define NRF_IOC_WRITE_REG _IOR(NRF_IOC_MAGIC, 14, struct nrf_reg)
+#define NRF_IOC_MODE_PWR_DOWN	_IO(NRF_IOC_MAGIC, 12)
+#define NRF_IOC_MODE_STANDBY1	_IO(NRF_IOC_MAGIC, 13)
+#define NRF_IOC_MODE_TX		_IO(NRF_IOC_MAGIC, 14)
+#define NRF_IOC_MODE_RX		_IO(NRF_IOC_MAGIC, 15)
 
-#define NRF_IOC_MAX 14
+#define NRF_IOC_SERVICE_IRQ	_IOR(NRF_IOC_MAGIC, 16, int)
+
+#define NRF_IOC_MAX 16
 
 /*
  * Register definitions for Nordic nRF24L01
